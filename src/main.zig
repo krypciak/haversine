@@ -1,44 +1,29 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 
-pub fn main() !void {
-    try writeRandomPoints(1000, 2137);
+const generator = @import("./generator.zig");
+
+comptime {
+    _ = @import("json/json.zig");
 }
 
-fn writeRandomPoints(point_pair_count: u64, seed: u64) !void {
-    var prng = std.Random.DefaultPrng.init(seed);
-    const rand = prng.random();
+pub fn main() !void {
+    const allocator = std.heap.page_allocator;
+    const argv = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, argv);
 
-    // const stdout_file = std.io.getStdOut().writer();
-    // var bw = std.io.bufferedWriter(stdout_file);
-    // defer bw.flush() catch unreachable;
-    // const writer = bw.writer();
+    if (argv.len <= 1) return error.NoArgument;
 
-    const file = try std.fs.cwd().createFile(
-        "output.json",
-        .{ .read = false },
-    );
-    defer file.close();
-    const writer = file.writer();
+    const action = argv[1];
+    if (std.mem.eql(u8, action, "generate")) {
+        if (argv.len <= 2) return error.PointCountMissing;
+        const point_count_str = argv[2];
 
-    _ = try writer.write(
-        \\{
-        \\  "pairs": [
-        \\
-    );
+        if (argv.len <= 3) return error.PointCountMissing;
+        const seed_str = argv[3];
 
-    var i: usize = 0;
-    while (i < point_pair_count) : (i += 1) {
-        const x0 = 360 * rand.float(f64) - 180;
-        const y0 = 360 * rand.float(f64) - 180;
-        const x1 = 360 * rand.float(f64) - 180;
-        const y1 = 360 * rand.float(f64) - 180;
-
-        try writer.print("    {{ \"x0\": {d}, \"y0\": {d}, \"x1\": {d}, \"y1\": {d} }}\n", .{ x0, y0, x1, y1 });
+        const point_count = try std.fmt.parseInt(u64, point_count_str, 10);
+        const seed = try std.fmt.parseInt(u64, seed_str, 10);
+        try generator.writeRandomPoints(point_count, seed);
     }
-
-    _ = try writer.write(
-        \\  ]
-        \\}
-    );
 }
