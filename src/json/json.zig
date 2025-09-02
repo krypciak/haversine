@@ -2,7 +2,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const StringHashMap = std.StringHashMap;
 
-const JsonNode = union(JsonNode.Type) {
+pub const JsonNode = union(JsonNode.Type) {
     const Type = enum {
         Number,
         String,
@@ -25,10 +25,12 @@ const JsonNode = union(JsonNode.Type) {
         switch (self.*) {
             .Number => |*num| {
                 const str = try std.fmt.allocPrint(allocator, "{d}", .{num.*});
+                defer allocator.free(str);
                 try builder.appendSlice(str);
             },
             .String => |*string| {
                 const str = try std.fmt.allocPrint(allocator, "\"{s}\"", .{string.*});
+                defer allocator.free(str);
                 try builder.appendSlice(str);
             },
             .Bool => |*b| {
@@ -46,6 +48,7 @@ const JsonNode = union(JsonNode.Type) {
                 for (arr.*, 0..) |*node, i| {
                     if (i != 0) try builder.appendSlice(", ");
                     const str = try node.print(allocator);
+                    defer allocator.free(str);
                     try builder.appendSlice(str);
                 }
                 try builder.append(']');
@@ -63,6 +66,7 @@ const JsonNode = union(JsonNode.Type) {
                     try builder.appendSlice(": ");
 
                     const value = try entry.value_ptr.print(allocator);
+                    defer allocator.free(value);
                     try builder.appendSlice(value);
                 }
 
@@ -73,7 +77,28 @@ const JsonNode = union(JsonNode.Type) {
     }
 };
 
-const Json = struct {
+pub const Json = struct {
+    node: ?JsonNode,
+    arena: std.heap.ArenaAllocator,
+
+    pub fn deinit(self: *const Json) void {
+        self.arena.deinit();
+    }
+
+    pub fn parse(allocator: std.mem.Allocator, str: []const u8) !Json {
+        var arena = std.heap.ArenaAllocator.init(allocator);
+        const arena_allocator = arena.allocator();
+
+        const node = try JsonNodeParser.parse(arena_allocator, str);
+
+        return .{
+            .node = node,
+            .arena = arena,
+        };
+    }
+};
+
+const JsonNodeParser = struct {
     fn isWhitespace(char: u8) bool {
         return char == ' ' or char == '\t' or char == '\r' or char == '\n';
     }
@@ -272,15 +297,13 @@ const Json = struct {
 };
 
 fn assertJson(input: []const u8) !void {
-    var arena = std.heap.ArenaAllocator.init(std.testing.allocator);
-    defer arena.deinit();
-    const arena_allocator = arena.allocator();
+    const allocator = std.testing.allocator;
+    var json = try Json.parse(allocator, input);
+    defer json.deinit();
 
-    var jsonOptional = try Json.parse(arena_allocator, input);
-
-    try std.testing.expect(jsonOptional != null);
-    if (jsonOptional) |*json| {
-        const str = try json.print(arena_allocator);
+    if (json.node) |*node| {
+        const str = try node.print(allocator);
+        defer allocator.free(str);
 
         try std.testing.expectEqualStrings(input, str);
     } else unreachable;
