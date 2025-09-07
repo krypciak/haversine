@@ -2,6 +2,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 
 const generator = @import("./generator.zig");
+const points_from_json = @import("./points_from_json.zig");
 const compute = @import("./compute.zig");
 
 const json_module = @import("./json/json.zig");
@@ -50,7 +51,9 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
     defer json.deinit();
 
     if (json.node) |*node| {
-        const result_data = try compute.compute(allocator, node.*);
+        const points = try points_from_json.getPointsFromJson(allocator, node);
+
+        const result_data = try compute.compute(allocator, points);
         defer allocator.free(result_data);
 
         if (compare_to_path) |*path| {
