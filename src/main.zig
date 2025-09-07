@@ -9,6 +9,8 @@ const json_module = @import("./json/json.zig");
 const Json = json_module.Json;
 const JsonNode = json_module.JsonNode;
 
+const timer = @import("./timer.zig");
+
 comptime {
     _ = @import("./json/json.zig");
 }
@@ -30,7 +32,7 @@ pub fn main() !void {
 
         const point_count = try std.fmt.parseInt(u64, point_count_str, 10);
         const seed = try std.fmt.parseInt(u64, seed_str, 10);
-        try generator.writeRandomPoints(point_count, seed);
+        try generator.writeRandomPoints(allocator, point_count, seed);
     } else if (std.mem.eql(u8, action, "compute")) {
         if (argv.len <= 2) return error.InputFileArgumentMissing;
         const input_file_path = argv[2];
@@ -42,34 +44,62 @@ pub fn main() !void {
 }
 
 fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, compare_to_path: ?[]const u8) !void {
+    const all_start = timer.readCpuTimer();
+
+    const input_file_read_start = timer.readCpuTimer();
     const input_file = try std.fs.cwd().openFile(input_file_path, .{});
-    const input_data = try input_file.readToEndAlloc(allocator, 10000000);
+    const input_data = try input_file.readToEndAlloc(allocator, (try input_file.stat()).size);
     defer allocator.free(input_data);
     input_file.close();
+    const input_file_read_end = timer.readCpuTimer();
 
+    const json_parse_start = timer.readCpuTimer();
     const json = try Json.parse(allocator, input_data);
     defer json.deinit();
 
     if (json.node) |*node| {
         const points = try points_from_json.getPointsFromJson(allocator, node);
+        const json_parse_end = timer.readCpuTimer();
 
+        const sum_start = timer.readCpuTimer();
         const result_data = try compute.compute(allocator, points);
         defer allocator.free(result_data);
+        const sum_end = timer.readCpuTimer();
+
+        var compare_file_read_start: u64 = 0;
+        var compare_file_read_end: u64 = 0;
 
         if (compare_to_path) |*path| {
+            compare_file_read_start = timer.readCpuTimer();
             const compare_to_file = try std.fs.cwd().openFile(path.*, .{});
             defer compare_to_file.close();
 
-            const expected_data_buf = try allocator.alignedAlloc(u8, @alignOf(f64), 100 * 1024 * 1024);
+            const expected_data_buf = try allocator.alignedAlloc(u8, @alignOf(f64), (try compare_to_file.stat()).size);
             const bytes_read = try compare_to_file.readAll(expected_data_buf);
             const expected_data_u8 = expected_data_buf[0..bytes_read];
             const expected_data = std.mem.bytesAsSlice(f64, expected_data_u8);
+
+            compare_file_read_end = timer.readCpuTimer();
 
             try compareData(result_data, expected_data);
         } else {
             const stdout = std.io.getStdOut().writer();
 
             try stdout.writeAll(std.mem.bytesAsSlice(u8, result_data));
+        }
+
+        const all_end = timer.readCpuTimer();
+        const all_elapsed = all_end - all_start;
+
+        const cpu_freq = timer.estimateCpuTimerFreq();
+        const all_elapsed_ms = 1000 * @as(f64, @floatFromInt(all_elapsed)) / @as(f64, @floatFromInt(cpu_freq));
+
+        std.debug.print("total time        : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
+        timer.print("input read", input_file_read_start, input_file_read_end, all_elapsed);
+        timer.print("parse", json_parse_start, json_parse_end, all_elapsed);
+        timer.print("sum", sum_start, sum_end, all_elapsed);
+        if (compare_file_read_start > 0) {
+            timer.print("compare read", compare_file_read_start, compare_file_read_end, all_elapsed);
         }
     } else return error.JsonNodeNull;
 }
