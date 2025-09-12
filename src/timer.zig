@@ -94,22 +94,38 @@ pub inline fn stop() void {
     } else unreachable;
 }
 
+inline fn floatDiv(a: anytype, b: anytype) f64 {
+    return (@as(f64, @floatFromInt(a)) / @as(f64, @floatFromInt(b)));
+}
+
+fn cpuTimeToMs(elapsed: u64, cpu_freq: u64) f64 {
+    return 1000 * floatDiv(elapsed, cpu_freq);
+}
+
 pub fn finalize() !void {
     const all_elapsed = readCpuTimer() - timer_begin;
     const cpu_freq = estimateCpuTimerFreq();
-    const all_elapsed_ms = 1000 * @as(f64, @floatFromInt(all_elapsed)) / @as(f64, @floatFromInt(cpu_freq));
+    const all_elapsed_ms = cpuTimeToMs(all_elapsed, cpu_freq);
 
     std.debug.print("total time               : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
 
+    var time_accounted_for: u64 = 0;
     for (timer_entries.items) |*entry| {
         const elapsed: u64 = entry.end - entry.start;
-        const percent: f64 = 100.0 * (@as(f64, @floatFromInt(elapsed)) / @as(f64, @floatFromInt(all_elapsed)));
+        const percent: f64 = 100.0 * floatDiv(elapsed, all_elapsed);
+
+        if (entry.depth == 0) time_accounted_for += elapsed;
 
         var i: usize = 0;
         while (i < entry.depth * 2 + 2) : (i += 2) std.debug.print("  ", .{});
 
         std.debug.print("{s: <25}: {d: <12} ({d:.2}%)\n", .{ entry.label, elapsed, percent });
     }
+
+    const time_unaccounted_for = all_elapsed - time_accounted_for;
+    const time_unaccounted_for_ms = cpuTimeToMs(time_unaccounted_for, cpu_freq);
+    const time_unaccounted_for_percent: f64 = 100.0 * floatDiv(time_unaccounted_for, all_elapsed);
+    std.debug.print("time unaccounted for     : {d} {d:.2}ms ({d:.2}%)\n", .{ time_unaccounted_for, time_unaccounted_for_ms, time_unaccounted_for_percent });
 
     std.debug.assert(timer_stack.items.len == 0);
 
