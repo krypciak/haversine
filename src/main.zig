@@ -54,11 +54,15 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
     timer.stop();
 
     try timer.start("parse");
+    try timer.start("Json.parse");
     const json = try Json.parse(allocator, input_data);
     defer json.deinit();
+    timer.stop();
 
     if (json.node) |*node| {
+        try timer.start("getPointsFromJson");
         const points = try points_from_json.getPointsFromJson(allocator, node);
+        timer.stop();
         timer.stop();
 
         try timer.start("sum");
