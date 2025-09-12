@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const json_module = @import("./json/json.zig");
+const json_module = @import("./json.zig");
 const Json = json_module.Json;
 const JsonNode = json_module.JsonNode;
 

@@ -5,14 +5,14 @@ const generator = @import("./generator.zig");
 const points_from_json = @import("./points_from_json.zig");
 const compute = @import("./compute.zig");
 
-const json_module = @import("./json/json.zig");
+const json_module = @import("./json.zig");
 const Json = json_module.Json;
 const JsonNode = json_module.JsonNode;
 
 const timer = @import("./timer.zig");
 
 comptime {
-    _ = @import("./json/json.zig");
+    _ = @import("./json.zig");
 }
 
 pub fn main() !void {
