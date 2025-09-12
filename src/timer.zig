@@ -59,14 +59,15 @@ const TimerEntry = struct { label: []const u8, start: u64, end: u64, depth: usiz
 var timer_allocator: std.mem.Allocator = undefined;
 var timer_stack: std.ArrayList(*TimerEntry) = undefined;
 var timer_entries: std.ArrayList(TimerEntry) = undefined;
-var timer_map: std.StringHashMap(TimerMapEntry) = undefined;
+// var timer_map: std.StringHashMap(TimerMapEntry) = undefined;
 var timer_begin: u64 = undefined;
 
 pub fn initTimer(allocator: std.mem.Allocator) !void {
     timer_allocator = allocator;
-    timer_stack = std.ArrayList(*TimerEntry).init(timer_allocator);
-    timer_entries = std.ArrayList(TimerEntry).init(timer_allocator);
-    timer_map = std.StringHashMap(TimerMapEntry).init(timer_allocator);
+    const capacity: usize = 50;
+    timer_stack = try std.ArrayList(*TimerEntry).initCapacity(timer_allocator, capacity);
+    timer_entries = try std.ArrayList(TimerEntry).initCapacity(timer_allocator, capacity);
+    // timer_map = std.StringHashMap(TimerMapEntry).init(timer_allocator);
     timer_begin = readCpuTimer();
 }
 
@@ -98,16 +99,7 @@ pub fn finalize() !void {
     const cpu_freq = estimateCpuTimerFreq();
     const all_elapsed_ms = 1000 * @as(f64, @floatFromInt(all_elapsed)) / @as(f64, @floatFromInt(cpu_freq));
 
-    const padding_right: usize = 25;
-
-    {
-        var i: usize = 0;
-        const label = "total time";
-        std.debug.print(label, .{});
-        i += label.len;
-        while (i < padding_right) : (i += 1) std.debug.print(" ", .{});
-        std.debug.print(": {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
-    }
+    std.debug.print("total time               : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
 
     for (timer_entries.items) |*entry| {
         const elapsed: u64 = entry.end - entry.start;
@@ -115,15 +107,13 @@ pub fn finalize() !void {
 
         var i: usize = 0;
         while (i < entry.depth * 2 + 2) : (i += 2) std.debug.print("  ", .{});
-        std.debug.print("{s}", .{entry.label});
-        i += entry.label.len;
-        while (i < padding_right) : (i += 1) std.debug.print(" ", .{});
-        // std.fmt.formatInt(u84, base: u8, case: Case, options: FormatOptions, writer: anytype)
 
-        std.debug.print(": {d: <12} ({d:.2}%)\n", .{ elapsed, percent });
+        std.debug.print("{s: <25}: {d: <12} ({d:.2}%)\n", .{ entry.label, elapsed, percent });
     }
+
+    std.debug.assert(timer_stack.items.len == 0);
 
     timer_stack.deinit();
     timer_entries.deinit();
-    timer_map.deinit();
+    // timer_map.deinit();
 }
