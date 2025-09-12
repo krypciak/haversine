@@ -24,7 +24,7 @@ inline fn readOsTimer() u64 {
     return @intCast(std.time.microTimestamp());
 }
 
-pub fn estimateCpuTimerFreq() u64 {
+fn estimateCpuTimerFreq() u64 {
     const miliseconds_to_wait: u64 = 100;
     const os_freq: u64 = getOsTimerFreq();
 
@@ -50,8 +50,68 @@ pub fn estimateCpuTimerFreq() u64 {
     return cpu_freq;
 }
 
-pub fn print(label: []const u8, start: u64, end: u64, total_time: u64) void {
-    const elapsed: u64 = end - start;
-    const percent: f64 = 100.0 * (@as(f64, @floatFromInt(elapsed)) / @as(f64, @floatFromInt(total_time)));
-    std.debug.print("  {s: <16}: {d: <12} ({d:.2}%)\n", .{ label, elapsed, percent });
+const TimerMapEntry = struct {
+    entries: std.ArrayList(*TimerEntry),
+};
+
+const TimerEntry = struct {
+    label: []const u8,
+    start: u64,
+    end: u64,
+    children: std.ArrayList(*TimerEntry),
+};
+
+var timer_allocator: std.mem.Allocator = undefined;
+var timer_stack: std.ArrayList(*TimerEntry) = undefined;
+var timer_entries: std.ArrayList(TimerEntry) = undefined;
+var timer_map: std.StringHashMap(TimerMapEntry) = undefined;
+var timer_begin: u64 = undefined;
+
+pub fn initTimer(allocator: std.mem.Allocator) !void {
+    timer_allocator = allocator;
+    timer_stack = std.ArrayList(*TimerEntry).init(timer_allocator);
+    timer_entries = std.ArrayList(TimerEntry).init(timer_allocator);
+    timer_map = std.StringHashMap(TimerMapEntry).init(timer_allocator);
+    timer_begin = readCpuTimer();
+}
+
+pub inline fn start(label: []const u8) !void {
+    var last = timer_stack.getLastOrNull();
+
+    const index = timer_entries.items.len;
+    try timer_entries.append(.{ .label = label, .start = readCpuTimer(), .end = 0, .children = std.ArrayList(*TimerEntry).init(timer_allocator) });
+    const node_ptr = &timer_entries.items[index];
+    try timer_stack.append(node_ptr);
+
+    const map_entry = try timer_map.getOrPutValue(label, .{ .entries = std.ArrayList(*TimerEntry).init(timer_allocator) });
+    try map_entry.value_ptr.entries.append(node_ptr);
+
+    if (last) |*last_node| {
+        try last_node.*.children.append(node_ptr);
+    }
+}
+
+pub inline fn stop() void {
+    var last = timer_stack.pop();
+    if (last) |*entry| {
+        entry.*.end = readCpuTimer();
+    } else unreachable;
+}
+
+pub fn finalize() !void {
+    const all_elapsed = readCpuTimer() - timer_begin;
+    const cpu_freq = estimateCpuTimerFreq();
+    const all_elapsed_ms = 1000 * @as(f64, @floatFromInt(all_elapsed)) / @as(f64, @floatFromInt(cpu_freq));
+
+    std.debug.print("total time        : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
+
+    for (timer_entries.items) |*entry| {
+        const elapsed: u64 = entry.end - entry.start;
+        const percent: f64 = 100.0 * (@as(f64, @floatFromInt(elapsed)) / @as(f64, @floatFromInt(all_elapsed)));
+        std.debug.print("  {s: <16}: {d: <12} ({d:.2}%)\n", .{ entry.label, elapsed, percent });
+    }
+
+    timer_stack.deinit();
+    timer_entries.deinit();
+    timer_map.deinit();
 }

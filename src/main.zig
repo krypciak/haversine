@@ -44,33 +44,30 @@ pub fn main() !void {
 }
 
 fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, compare_to_path: ?[]const u8) !void {
-    const all_start = timer.readCpuTimer();
+    try timer.initTimer(allocator);
 
-    const input_file_read_start = timer.readCpuTimer();
+    try timer.start("input read");
     const input_file = try std.fs.cwd().openFile(input_file_path, .{});
     const input_data = try input_file.readToEndAlloc(allocator, (try input_file.stat()).size);
     defer allocator.free(input_data);
     input_file.close();
-    const input_file_read_end = timer.readCpuTimer();
+    timer.stop();
 
-    const json_parse_start = timer.readCpuTimer();
+    try timer.start("parse");
     const json = try Json.parse(allocator, input_data);
     defer json.deinit();
 
     if (json.node) |*node| {
         const points = try points_from_json.getPointsFromJson(allocator, node);
-        const json_parse_end = timer.readCpuTimer();
+        timer.stop();
 
-        const sum_start = timer.readCpuTimer();
+        try timer.start("sum");
         const result_data = try compute.compute(allocator, points);
         defer allocator.free(result_data);
-        const sum_end = timer.readCpuTimer();
-
-        var compare_file_read_start: u64 = 0;
-        var compare_file_read_end: u64 = 0;
+        timer.stop();
 
         if (compare_to_path) |*path| {
-            compare_file_read_start = timer.readCpuTimer();
+            try timer.start("compare read");
             const compare_to_file = try std.fs.cwd().openFile(path.*, .{});
             defer compare_to_file.close();
 
@@ -79,7 +76,7 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
             const expected_data_u8 = expected_data_buf[0..bytes_read];
             const expected_data = std.mem.bytesAsSlice(f64, expected_data_u8);
 
-            compare_file_read_end = timer.readCpuTimer();
+            timer.stop();
 
             try compareData(result_data, expected_data);
         } else {
@@ -88,19 +85,7 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
             try stdout.writeAll(std.mem.bytesAsSlice(u8, result_data));
         }
 
-        const all_end = timer.readCpuTimer();
-        const all_elapsed = all_end - all_start;
-
-        const cpu_freq = timer.estimateCpuTimerFreq();
-        const all_elapsed_ms = 1000 * @as(f64, @floatFromInt(all_elapsed)) / @as(f64, @floatFromInt(cpu_freq));
-
-        std.debug.print("total time        : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
-        timer.print("input read", input_file_read_start, input_file_read_end, all_elapsed);
-        timer.print("parse", json_parse_start, json_parse_end, all_elapsed);
-        timer.print("sum", sum_start, sum_end, all_elapsed);
-        if (compare_file_read_start > 0) {
-            timer.print("compare read", compare_file_read_start, compare_file_read_end, all_elapsed);
-        }
+        try timer.finalize();
     } else return error.JsonNodeNull;
 }
 
