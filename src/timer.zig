@@ -55,6 +55,7 @@ const TimerEntry = struct {
     start: u64,
     end: u64,
     depth: usize,
+    bytes: u64,
 };
 
 var timer_begin: u64 = undefined;
@@ -73,9 +74,9 @@ pub fn initTimer(allocator: std.mem.Allocator) !void {
     timer_begin = readCpuTimer();
 }
 
-pub inline fn start(label: []const u8) !void {
+pub inline fn start(label: []const u8, bytes: u64) !void {
     const index = timer_entries.items.len;
-    try timer_entries.append(timer_allocator, .{ .label = label, .start = readCpuTimer(), .end = 0, .depth = timer_stack.items.len });
+    try timer_entries.append(timer_allocator, .{ .label = label, .start = readCpuTimer(), .end = 0, .depth = timer_stack.items.len, .bytes = bytes });
     const node_ptr = &timer_entries.items[index];
     try timer_stack.append(timer_allocator, node_ptr);
 }
@@ -107,13 +108,20 @@ pub fn finalize() !void {
         std.debug.assert(entry.end > entry.start);
         const elapsed: u64 = entry.end - entry.start;
         const percent: f64 = 100.0 * floatDiv(elapsed, all_elapsed);
+        const elapsed_ms: f64 = cpuTimeToMs(elapsed, cpu_freq);
 
         if (entry.depth == 0) time_accounted_for += elapsed;
 
         var i: usize = 0;
         while (i < entry.depth * 2 + 2) : (i += 2) std.debug.print("  ", .{});
 
-        std.debug.print("{s: <25}: {d: <12} ({d:.2}%)\n", .{ entry.label, elapsed, percent });
+        std.debug.print("{s: <25}: {d: <12} {d:.2}ms ({d:.2}%)", .{ entry.label, elapsed, elapsed_ms, percent });
+        if (entry.bytes > 0) {
+            const mb = @as(f64, @floatFromInt(entry.bytes)) / 1024.0 / 1024.0;
+            const throughput_gps = mb * 1000.0 / 1024.0 / elapsed_ms;
+            std.debug.print("  {d:.2}mb at {d:.2}gp/s", .{ mb, throughput_gps });
+        }
+        std.debug.print("\n", .{});
     }
 
     const time_unaccounted_for = all_elapsed - time_accounted_for;

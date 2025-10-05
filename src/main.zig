@@ -2,8 +2,10 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 
 const generator = @import("./generator.zig");
-const points_from_json = @import("./points_from_json.zig");
 const compute = @import("./compute.zig");
+
+const points_from_json = @import("./points_from_json.zig");
+const Point = points_from_json.Point;
 
 const json_module = @import("./json.zig");
 const Json = json_module.Json;
@@ -46,36 +48,38 @@ pub fn main() !void {
 fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, compare_to_path: ?[]const u8) !void {
     try timer.initTimer(allocator);
 
-    try timer.start("input read");
     const input_file = try std.fs.cwd().openFile(input_file_path, .{});
-    const input_data = try input_file.readToEndAlloc(allocator, (try input_file.stat()).size);
+    const input_file_size = (try input_file.stat()).size;
+    try timer.start("input read", input_file_size);
+    const input_data = try input_file.readToEndAlloc(allocator, input_file_size);
     defer allocator.free(input_data);
     input_file.close();
     timer.stop();
 
-    try timer.start("parse");
-    try timer.start("Json.parse");
+    try timer.start("parse", 0);
+    try timer.start("Json.parse", 0);
     const json = try Json.parse(allocator, input_data);
     defer json.deinit();
     timer.stop();
 
     if (json.node) |*node| {
-        try timer.start("getPointsFromJson");
+        try timer.start("getPointsFromJson", 0);
         const points = try points_from_json.getPointsFromJson(allocator, node);
         timer.stop();
         timer.stop();
 
-        try timer.start("sum");
+        try timer.start("sum", points.len * @sizeOf(Point));
         const result_data = try compute.compute(allocator, points);
         defer allocator.free(result_data);
         timer.stop();
 
         if (compare_to_path) |*path| {
-            try timer.start("compare read");
             const compare_to_file = try std.fs.cwd().openFile(path.*, .{});
             defer compare_to_file.close();
+            const compare_to_file_size = (try compare_to_file.stat()).size;
+            try timer.start("compare read", compare_to_file_size);
 
-            const expected_data_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"64", (try compare_to_file.stat()).size);
+            const expected_data_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"64", compare_to_file_size);
             const bytes_read = try compare_to_file.readAll(expected_data_buf);
             const expected_data_u8 = expected_data_buf[0..bytes_read];
             const expected_data = std.mem.bytesAsSlice(f64, expected_data_u8);
