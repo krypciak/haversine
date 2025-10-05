@@ -24,7 +24,7 @@ inline fn readOsTimer() u64 {
     return @intCast(std.time.microTimestamp());
 }
 
-fn estimateCpuTimerFreq() u64 {
+pub fn estimateCpuTimerFreq() u64 {
     const miliseconds_to_wait: u64 = 100;
     const os_freq: u64 = getOsTimerFreq();
 
@@ -92,8 +92,20 @@ inline fn floatDiv(a: anytype, b: anytype) f64 {
     return (@as(f64, @floatFromInt(a)) / @as(f64, @floatFromInt(b)));
 }
 
-fn cpuTimeToMs(elapsed: u64, cpu_freq: u64) f64 {
+pub fn cpuTimeToMs(elapsed: u64, cpu_freq: u64) f64 {
     return 1000 * floatDiv(elapsed, cpu_freq);
+}
+
+pub fn msToCpuTime(ms: u64, cpu_freq: u64) u64 {
+    return ms * cpu_freq / 1000;
+}
+
+pub fn printBandwidth(bytes: u64, elapsed_ms: f64) void {
+    if (bytes > 0) {
+        const mb = @as(f64, @floatFromInt(bytes)) / 1024.0 / 1024.0;
+        const throughput_gps = mb * 1000.0 / 1024.0 / elapsed_ms;
+        std.debug.print("  {d:.2}mb at {d:.2}gb/s", .{ mb, throughput_gps });
+    }
 }
 
 pub fn finalize() !void {
@@ -116,11 +128,7 @@ pub fn finalize() !void {
         while (i < entry.depth * 2 + 2) : (i += 2) std.debug.print("  ", .{});
 
         std.debug.print("{s: <25}: {d: <12} {d:.2}ms ({d:.2}%)", .{ entry.label, elapsed, elapsed_ms, percent });
-        if (entry.bytes > 0) {
-            const mb = @as(f64, @floatFromInt(entry.bytes)) / 1024.0 / 1024.0;
-            const throughput_gps = mb * 1000.0 / 1024.0 / elapsed_ms;
-            std.debug.print("  {d:.2}mb at {d:.2}gp/s", .{ mb, throughput_gps });
-        }
+        printBandwidth(entry.bytes, elapsed_ms);
         std.debug.print("\n", .{});
     }
 

@@ -13,6 +13,8 @@ const JsonNode = json_module.JsonNode;
 
 const timer = @import("./timer.zig");
 
+const repetition_tester = @import("./repetition_tester.zig");
+
 comptime {
     _ = @import("./json.zig");
 }
@@ -42,6 +44,8 @@ pub fn main() !void {
         const compare_to_path = if (argv.len <= 3) null else argv[3];
 
         try handleCompute(allocator, input_file_path, compare_to_path);
+    } else if (std.mem.eql(u8, action, "repetitionTest")) {
+        try repetition_tester.repetitionTest();
     }
 }
 
