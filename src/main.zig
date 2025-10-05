@@ -75,7 +75,7 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
             const compare_to_file = try std.fs.cwd().openFile(path.*, .{});
             defer compare_to_file.close();
 
-            const expected_data_buf = try allocator.alignedAlloc(u8, @alignOf(f64), (try compare_to_file.stat()).size);
+            const expected_data_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"64", (try compare_to_file.stat()).size);
             const bytes_read = try compare_to_file.readAll(expected_data_buf);
             const expected_data_u8 = expected_data_buf[0..bytes_read];
             const expected_data = std.mem.bytesAsSlice(f64, expected_data_u8);
@@ -84,9 +84,11 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
 
             try compareData(result_data, expected_data);
         } else {
-            const stdout = std.io.getStdOut().writer();
+            var stdout_writer = std.fs.File.stdout().writer(&.{});
+            const stdout = &stdout_writer.interface;
 
             try stdout.writeAll(std.mem.bytesAsSlice(u8, result_data));
+            try stdout.flush();
         }
 
         try timer.finalize();

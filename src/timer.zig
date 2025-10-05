@@ -50,41 +50,34 @@ fn estimateCpuTimerFreq() u64 {
     return cpu_freq;
 }
 
-const TimerMapEntry = struct {
-    entries: std.ArrayList(*TimerEntry),
+const TimerEntry = struct {
+    label: []const u8,
+    start: u64,
+    end: u64,
+    depth: usize,
 };
 
-const TimerEntry = struct { label: []const u8, start: u64, end: u64, depth: usize };
-
+var timer_begin: u64 = undefined;
 var timer_allocator: std.mem.Allocator = undefined;
+
 var timer_stack: std.ArrayList(*TimerEntry) = undefined;
 var timer_entries: std.ArrayList(TimerEntry) = undefined;
-// var timer_map: std.StringHashMap(TimerMapEntry) = undefined;
-var timer_begin: u64 = undefined;
 
 pub fn initTimer(allocator: std.mem.Allocator) !void {
     timer_allocator = allocator;
+
     const capacity: usize = 50;
     timer_stack = try std.ArrayList(*TimerEntry).initCapacity(timer_allocator, capacity);
     timer_entries = try std.ArrayList(TimerEntry).initCapacity(timer_allocator, capacity);
-    // timer_map = std.StringHashMap(TimerMapEntry).init(timer_allocator);
+
     timer_begin = readCpuTimer();
 }
 
 pub inline fn start(label: []const u8) !void {
-    // var last = timer_stack.getLastOrNull();
-
     const index = timer_entries.items.len;
-    try timer_entries.append(.{ .label = label, .start = readCpuTimer(), .end = 0, .depth = timer_stack.items.len });
+    try timer_entries.append(timer_allocator, .{ .label = label, .start = readCpuTimer(), .end = 0, .depth = timer_stack.items.len });
     const node_ptr = &timer_entries.items[index];
-    try timer_stack.append(node_ptr);
-
-    // const map_entry = try timer_map.getOrPutValue(label, .{ .entries = std.ArrayList(*TimerEntry).init(timer_allocator) });
-    // try map_entry.value_ptr.entries.append(node_ptr);
-    //
-    // if (last) |*last_node| {
-    //     try last_node.*.children.append(node_ptr);
-    // }
+    try timer_stack.append(timer_allocator, node_ptr);
 }
 
 pub inline fn stop() void {
@@ -111,6 +104,7 @@ pub fn finalize() !void {
 
     var time_accounted_for: u64 = 0;
     for (timer_entries.items) |*entry| {
+        std.debug.assert(entry.end > entry.start);
         const elapsed: u64 = entry.end - entry.start;
         const percent: f64 = 100.0 * floatDiv(elapsed, all_elapsed);
 
@@ -129,7 +123,6 @@ pub fn finalize() !void {
 
     std.debug.assert(timer_stack.items.len == 0);
 
-    timer_stack.deinit();
-    timer_entries.deinit();
-    // timer_map.deinit();
+    timer_stack.deinit(timer_allocator);
+    timer_entries.deinit(timer_allocator);
 }

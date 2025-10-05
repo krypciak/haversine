@@ -2,6 +2,8 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const StringHashMap = std.StringHashMap;
 
+const timer = @import("./timer.zig");
+
 pub const JsonNode = union(JsonNode.Type) {
     const Type = enum {
         Number,
@@ -20,60 +22,60 @@ pub const JsonNode = union(JsonNode.Type) {
     Record: StringHashMap(JsonNode),
 
     pub fn print(self: *const JsonNode, allocator: std.mem.Allocator) ![]const u8 {
-        var builder = ArrayList(u8).init(allocator);
+        var builder: ArrayList(u8) = .empty;
 
         switch (self.*) {
             .Number => |*num| {
                 const str = try std.fmt.allocPrint(allocator, "{d}", .{num.*});
                 defer allocator.free(str);
-                try builder.appendSlice(str);
+                try builder.appendSlice(allocator, str);
             },
             .String => |*string| {
                 const str = try std.fmt.allocPrint(allocator, "\"{s}\"", .{string.*});
                 defer allocator.free(str);
-                try builder.appendSlice(str);
+                try builder.appendSlice(allocator, str);
             },
             .Bool => |*b| {
                 if (b.*) {
-                    try builder.appendSlice("true");
+                    try builder.appendSlice(allocator, "true");
                 } else {
-                    try builder.appendSlice("false");
+                    try builder.appendSlice(allocator, "false");
                 }
             },
             .Null => {
-                try builder.appendSlice("null");
+                try builder.appendSlice(allocator, "null");
             },
             .Array => |*arr| {
-                try builder.append('[');
+                try builder.append(allocator, '[');
                 for (arr.*, 0..) |*node, i| {
-                    if (i != 0) try builder.appendSlice(", ");
+                    if (i != 0) try builder.appendSlice(allocator, ", ");
                     const str = try node.print(allocator);
                     defer allocator.free(str);
-                    try builder.appendSlice(str);
+                    try builder.appendSlice(allocator, str);
                 }
-                try builder.append(']');
+                try builder.append(allocator, ']');
             },
             .Record => |*rec| {
-                try builder.append('{');
+                try builder.append(allocator, '{');
 
                 var ite = rec.iterator();
                 var i: usize = 0;
                 while (ite.next()) |*entry| : (i += 1) {
-                    if (i != 0) try builder.appendSlice(", ");
-                    try builder.append('"');
-                    try builder.appendSlice(entry.key_ptr.*);
-                    try builder.append('"');
-                    try builder.appendSlice(": ");
+                    if (i != 0) try builder.appendSlice(allocator, ", ");
+                    try builder.append(allocator, '"');
+                    try builder.appendSlice(allocator, entry.key_ptr.*);
+                    try builder.append(allocator, '"');
+                    try builder.appendSlice(allocator, ": ");
 
                     const value = try entry.value_ptr.print(allocator);
                     defer allocator.free(value);
-                    try builder.appendSlice(value);
+                    try builder.appendSlice(allocator, value);
                 }
 
-                try builder.append('}');
+                try builder.append(allocator, '}');
             },
         }
-        return builder.toOwnedSlice();
+        return builder.toOwnedSlice(allocator);
     }
 };
 
@@ -108,7 +110,9 @@ const JsonNodeParser = struct {
     }
 
     fn readString(allocator: std.mem.Allocator, str: []const u8, start_i: usize) !struct { str: []const u8, i: usize } {
-        var string_builder = ArrayList(u8).init(allocator);
+        // try timer.startMulti("readString");
+        // defer timer.stopMulti("readString");
+        var string_builder: ArrayList(u8) = .empty;
 
         var i = start_i;
         var previous_backslash = false;
@@ -129,15 +133,15 @@ const JsonNodeParser = struct {
                     'u' => unreachable,
                     else => error.InvalidEscapeCharacter,
                 };
-                try string_builder.append(char);
+                try string_builder.append(allocator, char);
             } else if (c == '\\') {
                 previous_backslash = true;
                 continue;
             } else if (c == '"') {
-                const slice = try string_builder.toOwnedSlice();
+                const slice = try string_builder.toOwnedSlice(allocator);
                 return .{ .str = slice, .i = i };
             } else {
-                try string_builder.append(c);
+                try string_builder.append(allocator, c);
             }
         }
 
@@ -175,10 +179,10 @@ const JsonNodeParser = struct {
             map: StringHashMap(JsonNode),
         },
 
-        pub fn addNode(self: *BuilderNode, node: JsonNode) !void {
+        pub fn addNode(self: *BuilderNode, allocator: std.mem.Allocator, node: JsonNode) !void {
             switch (self.*) {
                 .Array, .Root => |*arr| {
-                    try arr.append(node);
+                    try arr.append(allocator, node);
                 },
                 .Record => |*rec| {
                     if (rec.*.varName.len == 0) {
@@ -202,10 +206,10 @@ const JsonNodeParser = struct {
 
         var expect_comma = false;
 
-        var stack = ArrayList(BuilderNode).init(allocator);
-        defer stack.deinit();
+        var stack: ArrayList(BuilderNode) = .empty;
+        defer stack.deinit(allocator);
 
-        try stack.append(.{ .Root = ArrayList(JsonNode).init(allocator) });
+        try stack.append(allocator, .{ .Root = .empty });
 
         while (i < str.len) : (i += 1) {
             const c = str[i];
@@ -220,7 +224,7 @@ const JsonNodeParser = struct {
                 if (builder_node_optional) |*builder| {
                     try switch (builder.*) {
                         .Array => |*builder_arr| {
-                            const array = try builder_arr.toOwnedSlice();
+                            const array = try builder_arr.toOwnedSlice(allocator);
                             node = .{ .Array = array };
                         },
                         else => error.ExpectedClosingBracket,
@@ -247,10 +251,10 @@ const JsonNodeParser = struct {
 
                 expect_comma = false;
             } else if (c == '{') {
-                try stack.append(.{ .Record = .{ .map = StringHashMap(JsonNode).init(allocator), .varName = "" } });
+                try stack.append(allocator, .{ .Record = .{ .map = StringHashMap(JsonNode).init(allocator), .varName = "" } });
             } else if (c == '[') {
-                const list = ArrayList(JsonNode).init(allocator);
-                try stack.append(.{ .Array = list });
+                const list: ArrayList(JsonNode) = .empty;
+                try stack.append(allocator, .{ .Array = list });
             } else if (c == '"') {
                 i += 1;
                 const obj = try readString(allocator, str, i);
@@ -276,7 +280,7 @@ const JsonNodeParser = struct {
 
             if (node) |*node1| {
                 const last = &stack.items[stack.items.len - 1];
-                try last.addNode(node1.*);
+                try last.addNode(allocator, node1.*);
                 expect_comma = true;
             }
         }
