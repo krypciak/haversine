@@ -55,7 +55,8 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
     const input_file = try std.fs.cwd().openFile(input_file_path, .{});
     const input_file_size = (try input_file.stat()).size;
     try timer.start("input read", input_file_size);
-    const input_data = try input_file.readToEndAlloc(allocator, input_file_size);
+    const input_data = try allocator.alloc(u8, input_file_size);
+    _ = try input_file.readAll(input_data);
     defer allocator.free(input_data);
     input_file.close();
     timer.stop();
