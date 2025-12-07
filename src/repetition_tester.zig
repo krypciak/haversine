@@ -1,5 +1,6 @@
 const std = @import("std");
 const timer = @import("./timer.zig");
+const posix = std.posix;
 
 pub fn repetitionTest() !void {
     std.debug.print("\x1B[2J\x1B[H", .{});
@@ -11,8 +12,10 @@ pub fn repetitionTest() !void {
     const filePath = "./data/data_10000000_flex.json";
     const readArgs = ReadArgs{ .filePath = filePath };
 
+    // while (true) {
     try runTest(allocator, cpuFreq, "readFileBuffer", readArgs, readFileBuffer);
     try runTest(allocator, cpuFreq, "readFileBuiltInAlloc", readArgs, readFileBuildInAlloc);
+    // }
 }
 
 fn runTest(allocator: std.mem.Allocator, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
@@ -31,22 +34,29 @@ const Bench = struct {
     timesRun: usize = 0,
     minTime: u64 = std.math.maxInt(u64),
     maxTime: u64 = std.math.minInt(u64),
-    noImprovementTimeoutMs: u64 = 10 * 1000,
+    noImprovementTimeoutMs: u64 = 3 * 1000,
     timeoutStart: u64 = 0,
     finished: bool = false,
     bytes: u64 = 0,
-    printOnMinChange: bool = false,
+    printOnMinChange: bool = true,
 
     startTime: u64 = 0,
     endTime: u64 = 0,
 
-    pub fn start(self: *Bench) void {
+    startFaults: posix.rusage = undefined,
+    endFaults: posix.rusage = undefined,
+
+    pub fn start(self: *Bench) !void {
         self.startTime = timer.readCpuTimer();
+        self.endTime = 0;
+        self.startFaults = posix.getrusage(posix.rusage.SELF);
     }
 
-    pub fn end(self: *Bench) void {
+    pub fn end(self: *Bench) !void {
         self.endTime = timer.readCpuTimer();
         self.timesRun += 1;
+
+        self.endFaults = posix.getrusage(posix.rusage.SELF);
 
         const elapsed = self.endTime - self.startTime;
 
@@ -76,11 +86,19 @@ const Bench = struct {
         // timer.printBandwidth(self.bytes, max_time_ms);
         // std.debug.print("\n", .{});
 
+        const minorFaults = self.endFaults.minflt - self.startFaults.minflt;
+        const majorFaults = self.endFaults.majflt - self.startFaults.majflt;
+
+        std.debug.print("  minor major faults: {d:<6} {d:<6}\n", .{minorFaults, majorFaults});
+
         std.debug.print("\n", .{});
     }
 };
 
 const ReadArgs = struct { filePath: []const u8 };
+
+var bufferSet = false;
+var buffer: []u8 = undefined;
 
 fn readFileBuffer(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
     const path = args.filePath;
@@ -88,17 +106,22 @@ fn readFileBuffer(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: 
     const file = try std.fs.cwd().openFile(path, .{});
     const file_size = (try file.stat()).size;
 
-    const data = try allocator.alloc(u8, file_size);
-    defer allocator.free(data);
+    try bench.start();
 
-    _ = try file.readAll(data);
+    if (!bufferSet) {
+        bufferSet = true;
+        buffer = try allocator.alloc(u8, file_size);
+        std.debug.print("allocating\n", .{});
+    }
 
-    if (file_size != data.len) return error.ReadFileSizeMismatch;
+    _ = try file.readAll(buffer);
+
+    if (file_size != buffer.len) return error.ReadFileSizeMismatch;
 
     file.close();
 
     bench.bytes = file_size;
-    bench.end();
+    try bench.end();
 }
 
 fn readFileBuildInAlloc(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
@@ -107,7 +130,7 @@ fn readFileBuildInAlloc(allocator: std.mem.Allocator, comptime args: ReadArgs, b
     const file = try std.fs.cwd().openFile(path, .{});
     const file_size = (try file.stat()).size;
 
-    bench.start();
+    try bench.start();
 
     const data = try file.readToEndAlloc(allocator, file_size);
     defer allocator.free(data);
@@ -117,5 +140,5 @@ fn readFileBuildInAlloc(allocator: std.mem.Allocator, comptime args: ReadArgs, b
     file.close();
 
     bench.bytes = file_size;
-    bench.end();
+    try bench.end();
 }
