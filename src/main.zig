@@ -44,8 +44,10 @@ pub fn main() !void {
         const compare_to_path = if (argv.len <= 3) null else argv[3];
 
         try handleCompute(allocator, input_file_path, compare_to_path);
-    } else if (std.mem.eql(u8, action, "repetitionTest")) {
-        try repetition_tester.repetitionTest();
+    } else if (std.mem.eql(u8, action, "repetitionTestReadFile")) {
+        try @import("./repetition_test_read_file.zig").repetitionTest();
+    } else if (std.mem.eql(u8, action, "repetitionTestWriteBytes")) {
+        try @import("./repetition_test_write_bytes.zig").repetitionTest();
     }
 }
 

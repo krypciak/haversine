@@ -2,32 +2,16 @@ const std = @import("std");
 const timer = @import("./timer.zig");
 const posix = std.posix;
 
-pub fn repetitionTest() !void {
-    std.debug.print("\x1B[2J\x1B[H", .{});
-    const allocator = std.heap.page_allocator;
-
-    const cpuFreq = timer.estimateCpuTimerFreq();
-    std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
-
-    const filePath = "./data/data_10000000_flex.json";
-    const readArgs = ReadArgs{ .filePath = filePath };
-
-    // while (true) {
-    try runTest(allocator, cpuFreq, "readFileBuffer", readArgs, readFileBuffer);
-    try runTest(allocator, cpuFreq, "readFileBuiltInAlloc", readArgs, readFileBuildInAlloc);
-    // }
-}
-
-fn runTest(allocator: std.mem.Allocator, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
+pub fn runTest(allocator: std.mem.Allocator, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
     var bench = Bench{ .name = name, .cpuFreq = cpuFreq };
 
     while (!bench.finished) {
         try func(allocator, args, &bench);
     }
-    bench.print();
+   bench.print();
 }
 
-const Bench = struct {
+pub const Bench = struct {
     name: []const u8,
     cpuFreq: u64,
 
@@ -89,56 +73,8 @@ const Bench = struct {
         const minorFaults = self.endFaults.minflt - self.startFaults.minflt;
         const majorFaults = self.endFaults.majflt - self.startFaults.majflt;
 
-        std.debug.print("  minor major faults: {d:<6} {d:<6}\n", .{minorFaults, majorFaults});
+        std.debug.print("  minor major faults: {d:<6} {d:<6}\n", .{ minorFaults, majorFaults });
 
         std.debug.print("\n", .{});
     }
 };
-
-const ReadArgs = struct { filePath: []const u8 };
-
-var bufferSet = false;
-var buffer: []u8 = undefined;
-
-fn readFileBuffer(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
-    const path = args.filePath;
-
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
-
-    try bench.start();
-
-    if (!bufferSet) {
-        bufferSet = true;
-        buffer = try allocator.alloc(u8, file_size);
-        std.debug.print("allocating\n", .{});
-    }
-
-    _ = try file.readAll(buffer);
-
-    if (file_size != buffer.len) return error.ReadFileSizeMismatch;
-
-    file.close();
-
-    bench.bytes = file_size;
-    try bench.end();
-}
-
-fn readFileBuildInAlloc(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
-    const path = args.filePath;
-
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
-
-    try bench.start();
-
-    const data = try file.readToEndAlloc(allocator, file_size);
-    defer allocator.free(data);
-
-    if (file_size != data.len) return error.ReadFileSizeMismatch;
-
-    file.close();
-
-    bench.bytes = file_size;
-    try bench.end();
-}
