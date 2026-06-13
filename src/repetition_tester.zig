@@ -2,11 +2,11 @@ const std = @import("std");
 const timer = @import("./timer.zig");
 const posix = std.posix;
 
-pub fn runTest(allocator: std.mem.Allocator, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
+pub fn runTest(allocator: std.mem.Allocator, io: std.Io, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
     var bench = Bench{ .name = name, .cpuFreq = cpuFreq };
 
     while (!bench.finished) {
-        try func(allocator, args, &bench);
+        try func(allocator, io, args, &bench);
     }
    bench.print();
 }

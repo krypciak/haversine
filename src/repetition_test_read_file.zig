@@ -5,53 +5,52 @@ const posix = std.posix;
 const repetition_testser = @import("./repetition_tester.zig");
 const Bench = repetition_testser.Bench;
 
-pub fn repetitionTest() !void {
+pub fn repetitionTest(io: std.Io) !void {
     std.debug.print("\x1B[2J\x1B[H", .{});
     const allocator = std.heap.page_allocator;
 
-    const cpuFreq = timer.estimateCpuTimerFreq();
+    const cpuFreq = timer.estimateCpuTimerFreq(io);
     std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
 
     const filePath = "./data/data_10000000_flex.json";
     const readArgs = ReadArgs{ .filePath = filePath };
 
     // while (true) {
-    try repetition_testser.runTest(allocator, cpuFreq, "readFileBuffer", readArgs, readFileBuffer);
-    try repetition_testser.runTest(allocator, cpuFreq, "readFileBuffer2MB", readArgs, readFileBuffer2MB);
-    try repetition_testser.runTest(allocator, cpuFreq, "readFileBufferReuse", readArgs, readFileBufferReuse);
-    try repetition_testser.runTest(allocator, cpuFreq, "readFileBuiltInAlloc", readArgs, readFileBuildInAlloc);
+    try repetition_testser.runTest(allocator, io, cpuFreq, "readFileBuffer", readArgs, readFileBuffer);
+    try repetition_testser.runTest(allocator, io, cpuFreq, "readFileBuffer2MB", readArgs, readFileBuffer2MB);
+    try repetition_testser.runTest(allocator, io, cpuFreq, "readFileBufferReuse", readArgs, readFileBufferReuse);
     // }
 }
 
 
 const ReadArgs = struct { filePath: []const u8 };
 
-fn readFileBuffer(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
+fn readFileBuffer(allocator: std.mem.Allocator, io: std.Io, comptime args: ReadArgs, bench: *Bench) !void {
     const path = args.filePath;
 
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    const file_size = (try file.stat(io)).size;
 
     try bench.start();
 
     const buffer = try allocator.alloc(u8, file_size);
     defer allocator.free(buffer);
 
-    _ = try file.readAll(buffer);
+    _ = try file.readPositionalAll(io, buffer, 0);
 
     if (file_size != buffer.len) return error.ReadFileSizeMismatch;
 
-    file.close();
+    file.close(io);
 
     bench.bytes = file_size;
     try bench.end();
 }
 
-fn readFileBuffer2MB(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
+fn readFileBuffer2MB(allocator: std.mem.Allocator, io: std.Io, comptime args: ReadArgs, bench: *Bench) !void {
     const path = args.filePath;
 
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    const file_size = (try file.stat(io)).size;
     const rounded_file_size = std.mem.alignForward(usize, file_size, 2 * 1024 * 1024);
 
     try bench.start();
@@ -65,11 +64,11 @@ fn readFileBuffer2MB(allocator: std.mem.Allocator, comptime args: ReadArgs, benc
     );
     defer allocator.free(buffer);
 
-    _ = try file.readAll(buffer);
+    _ = try file.readPositionalAll(io, buffer, 0);
 
     if (rounded_file_size != buffer.len) return error.ReadFileSizeMismatch;
 
-    file.close();
+    file.close(io);
 
     bench.bytes = file_size;
     try bench.end();
@@ -78,11 +77,11 @@ fn readFileBuffer2MB(allocator: std.mem.Allocator, comptime args: ReadArgs, benc
 var bufferSet = false;
 var bufferReuse: []u8 = undefined;
 
-fn readFileBufferReuse(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
+fn readFileBufferReuse(allocator: std.mem.Allocator, io: std.Io, comptime args: ReadArgs, bench: *Bench) !void {
     const path = args.filePath;
 
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    const file_size = (try file.stat(io)).size;
 
     try bench.start();
 
@@ -93,30 +92,11 @@ fn readFileBufferReuse(allocator: std.mem.Allocator, comptime args: ReadArgs, be
     }
     const buffer = bufferReuse;
 
-    _ = try file.readAll(buffer);
+    _ = try file.readPositionalAll(io, buffer, 0);
 
     if (file_size != buffer.len) return error.ReadFileSizeMismatch;
 
-    file.close();
-
-    bench.bytes = file_size;
-    try bench.end();
-}
-
-fn readFileBuildInAlloc(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
-    const path = args.filePath;
-
-    const file = try std.fs.cwd().openFile(path, .{});
-    const file_size = (try file.stat()).size;
-
-    try bench.start();
-
-    const buffer = try file.readToEndAlloc(allocator, file_size);
-    defer allocator.free(buffer);
-
-    if (file_size != buffer.len) return error.ReadFileSizeMismatch;
-
-    file.close();
+    file.close(io);
 
     bench.bytes = file_size;
     try bench.end();

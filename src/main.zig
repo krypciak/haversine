@@ -19,12 +19,13 @@ comptime {
     _ = @import("./json.zig");
 }
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
-    const argv = try std.process.argsAlloc(allocator);
-    defer std.process.argsFree(allocator, argv);
+    const argv = try init.minimal.args.toSlice(allocator);
 
     if (argv.len <= 1) return error.NoArgument;
+
+    const io = init.io;
 
     const action = argv[1];
     if (std.mem.eql(u8, action, "generate")) {
@@ -36,31 +37,31 @@ pub fn main() !void {
 
         const point_count = try std.fmt.parseInt(u64, point_count_str, 10);
         const seed = try std.fmt.parseInt(u64, seed_str, 10);
-        try generator.writeRandomPoints(allocator, point_count, seed);
+        try generator.writeRandomPoints(allocator, io, point_count, seed);
     } else if (std.mem.eql(u8, action, "compute")) {
         if (argv.len <= 2) return error.InputFileArgumentMissing;
         const input_file_path = argv[2];
 
         const compare_to_path = if (argv.len <= 3) null else argv[3];
 
-        try handleCompute(allocator, input_file_path, compare_to_path);
+        try handleCompute(allocator, io, input_file_path, compare_to_path);
     } else if (std.mem.eql(u8, action, "repetitionTestReadFile")) {
-        try @import("./repetition_test_read_file.zig").repetitionTest();
+        try @import("./repetition_test_read_file.zig").repetitionTest(io);
     } else if (std.mem.eql(u8, action, "repetitionTestWriteBytes")) {
-        try @import("./repetition_test_write_bytes.zig").repetitionTest();
+        try @import("./repetition_test_write_bytes.zig").repetitionTest(io);
     }
 }
 
-fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, compare_to_path: ?[]const u8) !void {
+fn handleCompute(allocator: std.mem.Allocator, io: std.Io, input_file_path: []const u8, compare_to_path: ?[]const u8) !void {
     try timer.initTimer(allocator);
 
-    const input_file = try std.fs.cwd().openFile(input_file_path, .{});
-    const input_file_size = (try input_file.stat()).size;
+    const input_file = try std.Io.Dir.cwd().openFile(io, input_file_path, .{});
+    const input_file_size = (try input_file.stat(io)).size;
     try timer.start("input read", input_file_size);
     const input_data = try allocator.alloc(u8, input_file_size);
-    _ = try input_file.readAll(input_data);
+    _ = try input_file.readPositionalAll(io, input_data, 0);
     defer allocator.free(input_data);
-    input_file.close();
+    input_file.close(io);
     timer.stop();
 
     try timer.start("parse", 0);
@@ -81,13 +82,13 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
         timer.stop();
 
         if (compare_to_path) |*path| {
-            const compare_to_file = try std.fs.cwd().openFile(path.*, .{});
-            defer compare_to_file.close();
-            const compare_to_file_size = (try compare_to_file.stat()).size;
+            const compare_to_file = try std.Io.Dir.cwd().openFile(io, path.*, .{});
+            defer compare_to_file.close(io);
+            const compare_to_file_size = (try compare_to_file.stat(io)).size;
             try timer.start("compare read", compare_to_file_size);
 
             const expected_data_buf = try allocator.alignedAlloc(u8, std.mem.Alignment.@"64", compare_to_file_size);
-            const bytes_read = try compare_to_file.readAll(expected_data_buf);
+            const bytes_read = try compare_to_file.readPositionalAll(io, expected_data_buf, 0);
             const expected_data_u8 = expected_data_buf[0..bytes_read];
             const expected_data = std.mem.bytesAsSlice(f64, expected_data_u8);
 
@@ -95,14 +96,14 @@ fn handleCompute(allocator: std.mem.Allocator, input_file_path: []const u8, comp
 
             try compareData(result_data, expected_data);
         } else {
-            var stdout_writer = std.fs.File.stdout().writer(&.{});
+            var stdout_writer = std.Io.File.stdout().writer(io, &.{});
             const stdout = &stdout_writer.interface;
 
             try stdout.writeAll(std.mem.bytesAsSlice(u8, result_data));
             try stdout.flush();
         }
 
-        try timer.finalize();
+        try timer.finalize(io);
     } else return error.JsonNodeNull;
 }
 

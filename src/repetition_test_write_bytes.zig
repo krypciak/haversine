@@ -5,23 +5,24 @@ const posix = std.posix;
 const repetition_testser = @import("./repetition_tester.zig");
 const Bench = repetition_testser.Bench;
 
-pub fn repetitionTest() !void {
+pub fn repetitionTest(io: std.Io) !void {
     std.debug.print("\x1B[2J\x1B[H", .{});
     const allocator = std.heap.page_allocator;
 
-    const cpuFreq = timer.estimateCpuTimerFreq();
+    const cpuFreq = timer.estimateCpuTimerFreq(io);
     std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
 
     const readArgs = ReadArgs{ .bytes_size = 100 * 1024 * 1024 };
 
     // while (true) {
-    try repetition_testser.runTest(allocator, cpuFreq, "writeToAllBytes", readArgs, writeToAllBytes);
+    try repetition_testser.runTest(allocator, io, cpuFreq, "writeToAllBytes", readArgs, writeToAllBytes);
     // }
 }
 
 const ReadArgs = struct { bytes_size: u64 };
 
-fn writeToAllBytes(allocator: std.mem.Allocator, comptime args: ReadArgs, bench: *Bench) !void {
+fn writeToAllBytes(allocator: std.mem.Allocator, io: std.Io, comptime args: ReadArgs, bench: *Bench) !void {
+    _ = io;
     const bytes_size = args.bytes_size;
 
     const buffer = try allocator.alloc(u8, bytes_size);

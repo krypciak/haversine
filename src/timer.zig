@@ -20,22 +20,22 @@ inline fn getOsTimerFreq() u64 {
     return 1000000;
 }
 
-inline fn readOsTimer() u64 {
-    return @intCast(std.time.microTimestamp());
+inline fn readOsTimer(io: std.Io) u64 {
+    return @intCast(std.Io.Clock.now(.real, io).toMicroseconds());
 }
 
-pub fn estimateCpuTimerFreq() u64 {
+pub fn estimateCpuTimerFreq(io: std.Io) u64 {
     const miliseconds_to_wait: u64 = 100;
     const os_freq: u64 = getOsTimerFreq();
 
     const cpu_start: u64 = readCpuTimer();
-    const os_start: u64 = readOsTimer();
+    const os_start: u64 = readOsTimer(io);
     var os_end: u64 = 0;
     var os_elapsed: u64 = 0;
 
     const os_wait_time: u64 = os_freq * miliseconds_to_wait / 1000;
     while (os_elapsed < os_wait_time) {
-        os_end = readOsTimer();
+        os_end = readOsTimer(io);
         os_elapsed = os_end - os_start;
     }
 
@@ -108,9 +108,9 @@ pub fn printBandwidth(bytes: u64, elapsed_ms: f64) void {
     }
 }
 
-pub fn finalize() !void {
+pub fn finalize(io: std.Io) !void {
     const all_elapsed = readCpuTimer() - timer_begin;
-    const cpu_freq = estimateCpuTimerFreq();
+    const cpu_freq = estimateCpuTimerFreq(io);
     const all_elapsed_ms = cpuTimeToMs(all_elapsed, cpu_freq);
 
     std.debug.print("total time               : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
