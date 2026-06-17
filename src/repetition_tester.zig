@@ -2,13 +2,13 @@ const std = @import("std");
 const timer = @import("./timer.zig");
 const posix = std.posix;
 
-pub fn runTest(allocator: std.mem.Allocator, io: std.Io, cpuFreq: u64, name: []const u8, comptime args: anytype, comptime func: anytype) !void {
+pub fn runTest(name: []const u8, cpuFreq: u64, comptime func: anytype, args: anytype) !void {
     var bench = Bench{ .name = name, .cpuFreq = cpuFreq };
 
     while (!bench.finished) {
-        try func(allocator, io, args, &bench);
+        try @call(.auto, func, args ++ .{&bench});
     }
-   bench.print();
+    bench.print();
 }
 
 pub const Bench = struct {
@@ -23,6 +23,7 @@ pub const Bench = struct {
     finished: bool = false,
     bytes: u64 = 0,
     printOnMinChange: bool = true,
+    hasPrinted: bool = false,
 
     startTime: u64 = 0,
     endTime: u64 = 0,
@@ -57,7 +58,11 @@ pub const Bench = struct {
         }
     }
 
-    pub fn print(self: *const Bench) void {
+    pub fn print(self: *Bench) void {
+        if (self.hasPrinted) {
+            std.debug.print("\x1b[4A\x1b[J", .{});
+        }
+        self.hasPrinted = true;
         std.debug.print("{s}\n", .{self.name});
         const min_time_ms = timer.cpuTimeToMs(self.minTime, self.cpuFreq);
         // const max_time_ms = timer.cpuTimeToMs(self.maxTime, self.cpuFreq);

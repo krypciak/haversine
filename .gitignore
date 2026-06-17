@@ -24,3 +24,6 @@ zig-cache/
 
 *.json
 *.f64
+
+.gdb_history
+repetition_test_write_bytes_loop

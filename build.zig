@@ -4,17 +4,22 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const nasm = b.addSystemCommand(&.{ "nasm", "-f", "elf64", "-o" });
+    const asm_loop_bin_path = nasm.addOutputFileArg("repetition_test_write_bytes_loop.o");
+    nasm.addFileArg(b.path("src/repetition_test_write_bytes_loop.asm"));
+
     const main_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
 
+    main_mod.addObjectFile(asm_loop_bin_path);
+
     const main_exe = b.addExecutable(.{
         .name = "haversine",
         .root_module = main_mod,
     });
-
     const clear_screen_step: *std.Build.Step = b.allocator.create(std.Build.Step) catch unreachable;
     clear_screen_step.* = std.Build.Step.init(.{
         .id = std.Build.Step.Id.custom,
