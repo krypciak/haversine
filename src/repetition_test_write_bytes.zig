@@ -21,9 +21,12 @@ pub fn repetitionTest(io: std.Io) !void {
     // while (true) {
     try repetition_testser.runTest("writeToAllBytes", cpuFreq, benchWrap, .{ buffer, writeToAllBytes });
     try repetition_testser.runTest("MOVAllBytesASM", cpuFreq, benchWrap, .{ buffer, MOVAllBytesASM });
-    try repetition_testser.runTest("NOPAllBytesASM", cpuFreq, benchWrap, .{ buffer, NOPAllBytesASM });
     try repetition_testser.runTest("CMPAllBytesASM", cpuFreq, benchWrap, .{ buffer, CMPAllBytesASM });
     try repetition_testser.runTest("DECAllBytesASM", cpuFreq, benchWrap, .{ buffer, DECAllBytesASM });
+    try repetition_testser.runTest("NOP3x1AllBytesASM", cpuFreq, benchWrap, .{ buffer, NOP3x1AllBytesASM });
+    try repetition_testser.runTest("NOP1x3AllBytesASM", cpuFreq, benchWrap, .{ buffer, NOP1x3AllBytesASM });
+    try repetition_testser.runTest("NOP3x3AllBytesASM", cpuFreq, benchWrap, .{ buffer, NOP3x3AllBytesASM });
+    try repetition_testser.runTest("NOP1x9AllBytesASM", cpuFreq, benchWrap, .{ buffer, NOP1x9AllBytesASM });
     // }
 }
 
@@ -53,6 +56,9 @@ fn writeToAllBytes(buffer: [*]u8, size: u64) void {
 }
 
 extern fn MOVAllBytesASM(buffer: [*]u8, size: u64) u64;
-extern fn NOPAllBytesASM(buffer: [*]u8, size: u64) u64;
 extern fn CMPAllBytesASM(buffer: [*]u8, size: u64) u64;
 extern fn DECAllBytesASM(buffer: [*]u8, size: u64) void;
+extern fn NOP3x1AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP1x3AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP3x3AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP1x9AllBytesASM(buffer: [*]u8, size: u64) u64;
