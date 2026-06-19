@@ -27,3 +27,8 @@ fn writeToAllBytes(buffer: [*]u8, size: u64) void {
 extern fn MOVAllBytesASM(buffer: [*]u8, size: u64) u64;
 extern fn CMPAllBytesASM(buffer: [*]u8, size: u64) u64;
 extern fn DECAllBytesASM(buffer: [*]u8, size: u64) void;
+
+extern fn NOP3x1AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP1x3AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP3x3AllBytesASM(buffer: [*]u8, size: u64) u64;
+extern fn NOP1x9AllBytesASM(buffer: [*]u8, size: u64) u64;

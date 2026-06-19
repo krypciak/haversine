@@ -5,7 +5,6 @@ global NOP3x1AllBytesASM
 global NOP1x3AllBytesASM
 global NOP3x3AllBytesASM
 global NOP1x9AllBytesASM
-global CondNOPAllBytesASM
 
 section .text
 
@@ -88,18 +87,3 @@ NOP1x9AllBytesASM:
 	jb  .loop
 	ret
 
-CondNOPAllBytesASM:
-	xor rax, rax
-
-.loop:
-	mov r10, [rdi + rax]
-	inc rax
-
-	test r10, 1
-	jnz  .skip
-	nop
-
-.skip:
-	cmp rax, rsi
-	jb  .loop
-	ret

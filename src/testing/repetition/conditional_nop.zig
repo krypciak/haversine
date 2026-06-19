@@ -50,8 +50,4 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     try repetition_testser.runTest("CondNOPAllBytesASM random", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 }
 
-extern fn NOP3x1AllBytesASM(buffer: [*]u8, size: u64) u64;
-extern fn NOP1x3AllBytesASM(buffer: [*]u8, size: u64) u64;
-extern fn NOP3x3AllBytesASM(buffer: [*]u8, size: u64) u64;
-extern fn NOP1x9AllBytesASM(buffer: [*]u8, size: u64) u64;
 extern fn CondNOPAllBytesASM(buffer: [*]u8, size: u64) u64;

@@ -1,23 +1,33 @@
 const std = @import("std");
 
+fn addAssemblyFile(b: *std.Build, comptime path: []const u8, main_mod: *std.Build.Module) void {
+    const nasm = b.addSystemCommand(&.{ "nasm", "-f", "elf64", "-o" });
+    const object_file_path = b.fmt(
+        "{s}.o",
+        .{std.fs.path.stem(path)},
+    );
+
+    const asm_bin_path = nasm.addOutputFileArg(object_file_path);
+    nasm.addFileArg(b.path(path));
+    main_mod.addObjectFile(asm_bin_path);
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
-
-    const nasm = b.addSystemCommand(&.{ "nasm", "-f", "elf64", "-o" });
-    const asm_loop_bin_path = nasm.addOutputFileArg("repetition_test_misc.o");
-    nasm.addFileArg(b.path("src/testing/repetition/misc.asm"));
 
     const main_mod = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
         .optimize = optimize,
     });
-    main_mod.addObjectFile(asm_loop_bin_path);
 
     const timer_mod = b.createModule(.{ .root_source_file = b.path("src/testing/timer.zig"), .target = target, .optimize = optimize });
 
     main_mod.addImport("timer", timer_mod);
+
+    addAssemblyFile(b, "src/testing/repetition/write_bytes.asm", main_mod);
+    addAssemblyFile(b, "src/testing/repetition/conditional_nop.asm", main_mod);
 
     const main_exe = b.addExecutable(.{
         .name = "haversine",
@@ -33,7 +43,7 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
 
-    const test_mod = b.createModule(.{ .root_source_file = b.path("src/testingtest_all.zig"), .target = target, .optimize = optimize });
+    const test_mod = b.createModule(.{ .root_source_file = b.path("src/test_all.zig"), .target = target, .optimize = optimize });
     const test_exe = b.addTest(.{
         .name = "tests",
         .root_module = test_mod,
