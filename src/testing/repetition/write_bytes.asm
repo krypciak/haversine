@@ -11,7 +11,8 @@ section .text
 bits 64
 
 MOVAllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	mov [rdi + rax], al
@@ -21,7 +22,8 @@ MOVAllBytesASM:
 	ret
 
 CMPAllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	inc rax
@@ -30,13 +32,16 @@ CMPAllBytesASM:
 	ret
 
 DECAllBytesASM:
+	align 64
+
 .loop:
 	dec rsi
 	jnz .loop
 	ret
 
 NOP3x1AllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	db  0x0f, 0x1f, 0x00; 3 byte noop
@@ -46,7 +51,8 @@ NOP3x1AllBytesASM:
 	ret
 
 NOP1x3AllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	nop
@@ -58,7 +64,8 @@ NOP1x3AllBytesASM:
 	ret
 
 NOP3x3AllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	db  0x0f, 0x1f, 0x00; 3 byte noop
@@ -70,7 +77,8 @@ NOP3x3AllBytesASM:
 	ret
 
 NOP1x9AllBytesASM:
-	xor rax, rax
+	align 64
+	xor   rax, rax
 
 .loop:
 	nop

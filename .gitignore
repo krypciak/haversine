@@ -28,3 +28,4 @@ zig-cache/
 .gdb_history
 write_bytes
 conditional_nop
+mov_read_port
