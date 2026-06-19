@@ -2,7 +2,7 @@ const std = @import("std");
 const ArrayList = std.ArrayList;
 const StringHashMap = std.StringHashMap;
 
-const timer = @import("./timer.zig");
+const timer = @import("timer");
 
 pub const JsonNode = union(JsonNode.Type) {
     const Type = enum {

@@ -1,5 +1,5 @@
 const std = @import("std");
-const timer = @import("./timer.zig");
+const timer = @import("timer");
 const posix = std.posix;
 
 pub fn runTest(name: []const u8, cpuFreq: u64, comptime func: anytype, args: anytype) !void {
@@ -83,3 +83,27 @@ pub const Bench = struct {
         std.debug.print("\n", .{});
     }
 };
+
+pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void {
+    const cpuFreq = timer.estimateCpuTimerFreq(io);
+    std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
+
+    if (std.mem.eql(u8, testType, "readFile")) {
+        try @import("read_file.zig").repetitionTest(allocator, io, cpuFreq);
+    } else if (std.mem.eql(u8, testType, "writeBytes")) {
+        try @import("write_bytes.zig").repetitionTest(allocator, cpuFreq);
+    } else if (std.mem.eql(u8, testType, "conditionalNop")) {
+        try @import("conditional_nop.zig").repetitionTest(allocator, cpuFreq);
+    } else return error.UnknownTestType;
+}
+
+pub fn wrapBufferTest(buffer: []u8, func: anytype, bench: *Bench) !void {
+    try bench.start();
+
+    const len: u64 = @intCast(buffer.len);
+    _ = @call(.auto, func, .{ buffer.ptr, len });
+
+    try bench.end();
+
+    bench.bytes = buffer.len;
+}
