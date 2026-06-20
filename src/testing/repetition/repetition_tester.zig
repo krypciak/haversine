@@ -96,6 +96,8 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void
         try @import("conditional_nop.zig").repetitionTest(allocator, cpuFreq);
     } else if (std.mem.eql(u8, testType, "movReadPort")) {
         try @import("mov_read_port.zig").repetitionTest(allocator, cpuFreq);
+    } else if (std.mem.eql(u8, testType, "readWidths")) {
+        try @import("read_widths.zig").repetitionTest(allocator, cpuFreq);
     } else return error.UnknownTestType;
 }
 
