@@ -2,16 +2,16 @@ const std = @import("std");
 const timer = @import("timer");
 const posix = std.posix;
 
-const repetition_testser = @import("./repetition_tester.zig");
-const Bench = repetition_testser.Bench;
+const repetition_tester = @import("./repetition_tester.zig");
+const Bench = repetition_tester.Bench;
 
 pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io, cpuFreq: u64) !void {
     const filePath = "./data/data_10000000_flex.json";
 
     // while (true) {
-    try repetition_testser.runTest("readFileBuffer", cpuFreq, readFileBuffer, .{ allocator, io, filePath });
-    try repetition_testser.runTest("readFileBuffer2MB", cpuFreq, readFileBuffer2MB, .{ allocator, io, filePath });
-    try repetition_testser.runTest("readFileBufferReuse", cpuFreq, readFileBufferReuse, .{ allocator, io, filePath });
+    try repetition_tester.runTest("readFileBuffer", cpuFreq, readFileBuffer, .{ allocator, io, filePath });
+    try repetition_tester.runTest("readFileBuffer2MB", cpuFreq, readFileBuffer2MB, .{ allocator, io, filePath });
+    try repetition_tester.runTest("readFileBufferReuse", cpuFreq, readFileBufferReuse, .{ allocator, io, filePath });
     // }
 }
 

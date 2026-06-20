@@ -2,19 +2,19 @@ const std = @import("std");
 const timer = @import("timer");
 const posix = std.posix;
 
-const repetition_testser = @import("./repetition_tester.zig");
-const Bench = repetition_testser.Bench;
-const wrapBufferTest = repetition_testser.wrapBufferTest;
+const repetition_tester = @import("./repetition_tester.zig");
+const Bench = repetition_tester.Bench;
+const wrapBufferTest = repetition_tester.wrapBufferTest;
 
 pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     const buffer = try allocator.alloc(u8, 100 * 1024 * 1024);
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
 
-    try repetition_testser.runTest("writeToAllBytes", cpuFreq, wrapBufferTest, .{ buffer, writeToAllBytes });
-    try repetition_testser.runTest("MOVAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOVAllBytesASM });
-    try repetition_testser.runTest("CMPAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, CMPAllBytesASM });
-    try repetition_testser.runTest("DECAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, DECAllBytesASM });
+    try repetition_tester.runTest("writeToAllBytes", cpuFreq, wrapBufferTest, .{ buffer, writeToAllBytes });
+    try repetition_tester.runTest("MOVAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOVAllBytesASM });
+    try repetition_tester.runTest("CMPAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, CMPAllBytesASM });
+    try repetition_tester.runTest("DECAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, DECAllBytesASM });
 }
 
 fn writeToAllBytes(buffer: [*]u8, size: u64) void {

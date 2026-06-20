@@ -44,7 +44,6 @@ MOV1x4AllBytesASM:
 	jnle  .loop
 	ret
 
-
 MOV1x5AllBytesASM:
 	align 64
 
