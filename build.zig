@@ -30,6 +30,7 @@ pub fn build(b: *std.Build) void {
     addAssemblyFile(b, "src/testing/repetition/conditional_nop.asm", main_mod);
     addAssemblyFile(b, "src/testing/repetition/mov_read_port.asm", main_mod);
     addAssemblyFile(b, "src/testing/repetition/read_widths.asm", main_mod);
+    addAssemblyFile(b, "src/testing/repetition/cache_size.asm", main_mod);
 
     const main_exe = b.addExecutable(.{
         .name = "haversine",
