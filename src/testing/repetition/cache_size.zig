@@ -17,23 +17,20 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
 
     const measure_at = [_]u64{ 4, 8, 16, 24, 32, 40, 48, 60, 64, 98, 128, 256, 512, 768, 1024, 1536, 2048, 4096, 8192, 12288, 16384, 32768, 65536, 131072, 262144 };
 
-    var i: u64 = 0;
-    while (i < measure_at.len) : (i += 1) {
-        const kib = measure_at[i];
-
+    for (measure_at) |kib| {
         const test_name = try std.fmt.allocPrint(allocator, "CacheSizeMeasure {}KiB", .{kib});
         _ = try repetition_tester.runTest(test_name, cpuFreq, wrapBufferTest, .{ buffer, kib, 0 });
     }
 }
 
-pub fn wrapBufferTest(buffer: []u8, kib: u64, bench: *Bench) !void {
+pub fn wrapBufferTest(buffer: []u8, kib: u64, misalignment: u64, bench: *Bench) !void {
     const inner_size = kib * 1024;
     const outer_count = buffer.len / inner_size;
     const bytes_count = inner_size * outer_count;
     // std.debug.print("{} KiB, inner_size: {} B, outer_count: {}, bytes_count: {} \n", .{ kib, inner_size, outer_count, bytes_count });
 
     try bench.start();
-    CacheSizeMeasure(buffer.ptr, outer_count, inner_size);
+    CacheSizeMeasure(buffer.ptr + misalignment, outer_count, inner_size);
     try bench.end();
 
     bench.bytes = bytes_count;
