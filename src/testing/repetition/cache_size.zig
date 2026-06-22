@@ -22,7 +22,7 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
         const kib = measure_at[i];
 
         const test_name = try std.fmt.allocPrint(allocator, "CacheSizeMeasure {}KiB", .{kib});
-        try repetition_tester.runTest(test_name, cpuFreq, wrapBufferTest, .{ buffer, kib });
+        _ = try repetition_tester.runTest(test_name, cpuFreq, wrapBufferTest, .{ buffer, kib, 0 });
     }
 }
 

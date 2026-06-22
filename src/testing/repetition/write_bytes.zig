@@ -11,10 +11,10 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
 
-    try repetition_tester.runTest("writeToAllBytes", cpuFreq, wrapBufferTest, .{ buffer, writeToAllBytes });
-    try repetition_tester.runTest("MOVAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOVAllBytesASM });
-    try repetition_tester.runTest("CMPAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, CMPAllBytesASM });
-    try repetition_tester.runTest("DECAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, DECAllBytesASM });
+    _ = try repetition_tester.runTest("writeToAllBytes", cpuFreq, wrapBufferTest, .{ buffer, writeToAllBytes });
+    _ = try repetition_tester.runTest("MOVAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOVAllBytesASM });
+    _ = try repetition_tester.runTest("CMPAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, CMPAllBytesASM });
+    _ = try repetition_tester.runTest("DECAllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, DECAllBytesASM });
 }
 
 fn writeToAllBytes(buffer: [*]u8, size: u64) void {

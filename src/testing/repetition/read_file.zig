@@ -9,9 +9,9 @@ pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io, cpuFreq: u64) !v
     const filePath = "./data/data_10000000_flex.json";
 
     // while (true) {
-    try repetition_tester.runTest("readFileBuffer", cpuFreq, readFileBuffer, .{ allocator, io, filePath });
-    try repetition_tester.runTest("readFileBuffer2MB", cpuFreq, readFileBuffer2MB, .{ allocator, io, filePath });
-    try repetition_tester.runTest("readFileBufferReuse", cpuFreq, readFileBufferReuse, .{ allocator, io, filePath });
+    _ = try repetition_tester.runTest("readFileBuffer", cpuFreq, readFileBuffer, .{ allocator, io, filePath });
+    _ = try repetition_tester.runTest("readFileBuffer2MB", cpuFreq, readFileBuffer2MB, .{ allocator, io, filePath });
+    _ = try repetition_tester.runTest("readFileBufferReuse", cpuFreq, readFileBufferReuse, .{ allocator, io, filePath });
     // }
 }
 

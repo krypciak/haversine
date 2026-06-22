@@ -11,11 +11,11 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
 
-    try repetition_tester.runTest("MOV1x1AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x1AllBytesASM });
-    try repetition_tester.runTest("MOV1x2AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x2AllBytesASM });
-    try repetition_tester.runTest("MOV1x3AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x3AllBytesASM });
-    try repetition_tester.runTest("MOV1x4AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x4AllBytesASM });
-    try repetition_tester.runTest("MOV1x5AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x5AllBytesASM });
+    _ = try repetition_tester.runTest("MOV1x1AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x1AllBytesASM });
+    _ = try repetition_tester.runTest("MOV1x2AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x2AllBytesASM });
+    _ = try repetition_tester.runTest("MOV1x3AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x3AllBytesASM });
+    _ = try repetition_tester.runTest("MOV1x4AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x4AllBytesASM });
+    _ = try repetition_tester.runTest("MOV1x5AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x5AllBytesASM });
 }
 
 extern fn MOV1x1AllBytesASM(buffer: [*]u8, size: u64) void;

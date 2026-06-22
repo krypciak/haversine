@@ -14,40 +14,40 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     var i: u64 = 0;
 
     @memset(buffer, 0);
-    try repetition_tester.runTest("CondNOPAllBytesASM all 0", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM all 0", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 1) {
         buffer[i] = 1;
     }
-    try repetition_tester.runTest("CondNOPAllBytesASM all 1", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM all 1", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 2) {
         buffer[i] = 1;
     }
-    try repetition_tester.runTest("CondNOPAllBytesASM 1 every 2", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 2", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 3) {
         buffer[i] = 1;
     }
-    try repetition_tester.runTest("CondNOPAllBytesASM 1 every 3", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 3", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 4) {
         buffer[i] = 1;
     }
-    try repetition_tester.runTest("CondNOPAllBytesASM 1 every 4", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 4", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 
     var prng = std.Random.DefaultPrng.init(12345);
     const random = prng.random();
     random.bytes(buffer);
-    try repetition_tester.runTest("CondNOPAllBytesASM random", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    _ = try repetition_tester.runTest("CondNOPAllBytesASM random", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
 }
 
 extern fn CondNOPAllBytesASM(buffer: [*]u8, size: u64) u64;

@@ -2,13 +2,14 @@ const std = @import("std");
 const timer = @import("timer");
 const posix = std.posix;
 
-pub fn runTest(name: []const u8, cpuFreq: u64, comptime func: anytype, args: anytype) !void {
+pub fn runTest(name: []const u8, cpuFreq: u64, comptime func: anytype, args: anytype) !Bench {
     var bench = Bench{ .name = name, .cpuFreq = cpuFreq };
 
     while (!bench.finished) {
         try @call(.auto, func, args ++ .{&bench});
     }
     bench.print();
+    return bench;
 }
 
 pub const Bench = struct {
@@ -100,6 +101,8 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void
         try @import("read_widths.zig").repetitionTest(allocator, cpuFreq);
     } else if (std.mem.eql(u8, testType, "cacheSize")) {
         try @import("cache_size.zig").repetitionTest(allocator, cpuFreq);
+    } else if (std.mem.eql(u8, testType, "cacheMisalignment")) {
+        try @import("cache_misalignment.zig").repetitionTest(allocator, cpuFreq);
     } else return error.UnknownTestType;
 }
 
