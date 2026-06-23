@@ -111,5 +111,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void
         try @import("cache_size.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "cacheMisalignment")) {
         try @import("cache_misalignment.zig").repetitionTest(allocator);
+    } else if (std.mem.eql(u8, testType, "cacheIndexing")) {
+        try @import("cache_indexing.zig").repetitionTest(allocator);
     } else return error.UnknownTestType;
 }

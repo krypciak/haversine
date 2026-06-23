@@ -31,3 +31,4 @@ conditional_nop
 mov_read_port
 read_widths
 cache_size
+cache_indexing
