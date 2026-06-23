@@ -6,13 +6,14 @@ bits 64
 
 CacheSizeMeasure:
 	; rdi - buffer
-	; rsi - outer count
-	; rdx - inner size
+	; rsi - buffer size (unused)
+	; rdx - outer count
+	; rcx - inner size
 
 	align 64
 
 	mov r9, rdi
-	add r9, rdx
+	add r9, rcx
 
 .outer_loop:
 	mov rax, rdi
@@ -32,7 +33,7 @@ CacheSizeMeasure:
 	cmp rax, r9
 	jb  .inner_loop
 
-	sub rsi, 1
+	sub rdx, 1
 	jnz .outer_loop
 
 	ret

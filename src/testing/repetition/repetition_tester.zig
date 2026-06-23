@@ -2,19 +2,20 @@ const std = @import("std");
 const timer = @import("timer");
 const posix = std.posix;
 
-pub fn runTest(name: []const u8, cpuFreq: u64, comptime func: anytype, args: anytype) !Bench {
-    var bench = Bench{ .name = name, .cpuFreq = cpuFreq };
+pub fn wrapBuffer(bench: *Bench, buffer: []u8, comptime func: anytype, args: anytype) !void {
+    bench.bytes = buffer.len;
+    try bench.start();
+    _ = @call(.auto, func, .{ buffer.ptr, buffer.len } ++ args);
+    try bench.end();
+}
 
-    while (!bench.finished) {
-        try @call(.auto, func, args ++ .{&bench});
-    }
-    bench.print();
-    return bench;
+var cpuFreq: u64 = 0;
+pub fn setCpuFreq(freq: u64) void {
+    cpuFreq = freq;
 }
 
 pub const Bench = struct {
     name: []const u8,
-    cpuFreq: u64,
 
     timesRun: usize = 0,
     minTime: u64 = std.math.maxInt(u64),
@@ -53,7 +54,7 @@ pub const Bench = struct {
             self.timeoutStart = timer.readCpuTimer();
             if (self.printOnMinChange) self.print();
         } else {
-            if (self.timeoutStart <= self.endTime - timer.msToCpuTime(self.noImprovementTimeoutMs, self.cpuFreq)) {
+            if (self.timeoutStart <= self.endTime - timer.msToCpuTime(self.noImprovementTimeoutMs, cpuFreq)) {
                 self.finished = true;
             }
         }
@@ -65,8 +66,8 @@ pub const Bench = struct {
         }
         self.hasPrinted = true;
         std.debug.print("{s}\n", .{self.name});
-        const min_time_ms = timer.cpuTimeToMs(self.minTime, self.cpuFreq);
-        // const max_time_ms = timer.cpuTimeToMs(self.maxTime, self.cpuFreq);
+        const min_time_ms = timer.cpuTimeToMs(self.minTime, cpuFreq);
+        // const max_time_ms = timer.cpuTimeToMs(self.maxTime, cpuFreq);
 
         std.debug.print("  min: {d:<12} {d:.2}ms", .{ self.minTime, min_time_ms });
         timer.printBandwidth(self.bytes, min_time_ms);
@@ -83,36 +84,32 @@ pub const Bench = struct {
 
         std.debug.print("\n", .{});
     }
+
+    pub fn runLoop(self: *Bench, comptime func: anytype, args: anytype) !void {
+        while (!self.finished) {
+            try @call(.auto, func, .{self} ++ args);
+        }
+        self.print();
+    }
 };
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void {
-    const cpuFreq = timer.estimateCpuTimerFreq(io);
+    setCpuFreq(timer.estimateCpuTimerFreq(io));
     std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
 
     if (std.mem.eql(u8, testType, "readFile")) {
-        try @import("read_file.zig").repetitionTest(allocator, io, cpuFreq);
+        try @import("read_file.zig").repetitionTest(allocator, io);
     } else if (std.mem.eql(u8, testType, "writeBytes")) {
-        try @import("write_bytes.zig").repetitionTest(allocator, cpuFreq);
+        try @import("write_bytes.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "conditionalNop")) {
-        try @import("conditional_nop.zig").repetitionTest(allocator, cpuFreq);
+        try @import("conditional_nop.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "movReadPort")) {
-        try @import("mov_read_port.zig").repetitionTest(allocator, cpuFreq);
+        try @import("mov_read_port.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "readWidths")) {
-        try @import("read_widths.zig").repetitionTest(allocator, cpuFreq);
+        try @import("read_widths.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "cacheSize")) {
-        try @import("cache_size.zig").repetitionTest(allocator, cpuFreq);
+        try @import("cache_size.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "cacheMisalignment")) {
-        try @import("cache_misalignment.zig").repetitionTest(allocator, cpuFreq);
+        try @import("cache_misalignment.zig").repetitionTest(allocator);
     } else return error.UnknownTestType;
-}
-
-pub fn wrapBufferTest(buffer: []u8, func: anytype, bench: *Bench) !void {
-    try bench.start();
-
-    const len: u64 = @intCast(buffer.len);
-    _ = @call(.auto, func, .{ buffer.ptr, len });
-
-    try bench.end();
-
-    bench.bytes = buffer.len;
 }

@@ -4,18 +4,27 @@ const posix = std.posix;
 
 const repetition_tester = @import("./repetition_tester.zig");
 const Bench = repetition_tester.Bench;
-const wrapBufferTest = repetition_tester.wrapBufferTest;
+const wrapBuffer = repetition_tester.wrapBuffer;
 
-pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
+pub fn repetitionTest(allocator: std.mem.Allocator) !void {
     const buffer = try allocator.alloc(u8, 100 * 1024 * 1024);
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
 
-    _ = try repetition_tester.runTest("MOV1x1AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x1AllBytesASM });
-    _ = try repetition_tester.runTest("MOV1x2AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x2AllBytesASM });
-    _ = try repetition_tester.runTest("MOV1x3AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x3AllBytesASM });
-    _ = try repetition_tester.runTest("MOV1x4AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x4AllBytesASM });
-    _ = try repetition_tester.runTest("MOV1x5AllBytesASM", cpuFreq, wrapBufferTest, .{ buffer, MOV1x5AllBytesASM });
+    var b1 = Bench{ .name = "MOV1x1AllBytesASM" };
+    try b1.runLoop(wrapBuffer, .{ buffer, MOV1x1AllBytesASM, .{} });
+
+    var b2 = Bench{ .name = "MOV1x2AllBytesASM" };
+    try b2.runLoop(wrapBuffer, .{ buffer, MOV1x2AllBytesASM, .{} });
+
+    var b3 = Bench{ .name = "MOV1x3AllBytesASM" };
+    try b3.runLoop(wrapBuffer, .{ buffer, MOV1x3AllBytesASM, .{} });
+
+    var b4 = Bench{ .name = "MOV1x4AllBytesASM" };
+    try b4.runLoop(wrapBuffer, .{ buffer, MOV1x4AllBytesASM, .{} });
+
+    var b5 = Bench{ .name = "MOV1x5AllBytesASM" };
+    try b5.runLoop(wrapBuffer, .{ buffer, MOV1x5AllBytesASM, .{} });
 }
 
 extern fn MOV1x1AllBytesASM(buffer: [*]u8, size: u64) void;

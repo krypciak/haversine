@@ -4,9 +4,9 @@ const posix = std.posix;
 
 const repetition_tester = @import("./repetition_tester.zig");
 const Bench = repetition_tester.Bench;
-const wrapBufferTest = repetition_tester.wrapBufferTest;
+const wrapBuffer = repetition_tester.wrapBuffer;
 
-pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
+pub fn repetitionTest(allocator: std.mem.Allocator) !void {
     const buffer = try allocator.alloc(u8, 100 * 1024 * 1024);
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
@@ -14,40 +14,46 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
     var i: u64 = 0;
 
     @memset(buffer, 0);
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM all 0", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b1 = Bench{ .name = "CondNOPAllBytesASM all 0" };
+    try b1.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 1) {
         buffer[i] = 1;
     }
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM all 1", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b2 = Bench{ .name = "CondNOPAllBytesASM all 1" };
+    try b2.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 2) {
         buffer[i] = 1;
     }
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 2", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b3 = Bench{ .name = "CondNOPAllBytesASM 1 every 2" };
+    try b3.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 3) {
         buffer[i] = 1;
     }
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 3", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b4 = Bench{ .name = "CondNOPAllBytesASM 1 every 3" };
+    try b4.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 
     @memset(buffer, 0);
     i = 0;
     while (i < buffer.len) : (i += 4) {
         buffer[i] = 1;
     }
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM 1 every 4", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b5 = Bench{ .name = "CondNOPAllBytesASM 1 every 4" };
+    try b5.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 
     var prng = std.Random.DefaultPrng.init(12345);
     const random = prng.random();
     random.bytes(buffer);
-    _ = try repetition_tester.runTest("CondNOPAllBytesASM random", cpuFreq, wrapBufferTest, .{ buffer, CondNOPAllBytesASM });
+    var b6 = Bench{ .name = "CondNOPAllBytesASM random" };
+    try b6.runLoop(wrapBuffer, .{ buffer, CondNOPAllBytesASM, .{} });
 }
 
 extern fn CondNOPAllBytesASM(buffer: [*]u8, size: u64) u64;

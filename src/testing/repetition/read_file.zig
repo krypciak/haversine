@@ -5,17 +5,23 @@ const posix = std.posix;
 const repetition_tester = @import("./repetition_tester.zig");
 const Bench = repetition_tester.Bench;
 
-pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io, cpuFreq: u64) !void {
+pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io) !void {
     const filePath = "./data/data_10000000_flex.json";
 
     // while (true) {
-    _ = try repetition_tester.runTest("readFileBuffer", cpuFreq, readFileBuffer, .{ allocator, io, filePath });
-    _ = try repetition_tester.runTest("readFileBuffer2MB", cpuFreq, readFileBuffer2MB, .{ allocator, io, filePath });
-    _ = try repetition_tester.runTest("readFileBufferReuse", cpuFreq, readFileBufferReuse, .{ allocator, io, filePath });
+    var b1 = Bench{ .name = "readFileBuffer" };
+    try b1.runLoop(readFileBuffer, .{ allocator, io, filePath });
+
+    var b2 = Bench{ .name = "readFileBuffer2MB" };
+    try b2.runLoop(readFileBuffer2MB, .{ allocator, io, filePath });
+
+    var b3 = Bench{ .name = "readFileBufferReuse" };
+    try b3.runLoop(readFileBufferReuse, .{ allocator, io, filePath });
+
     // }
 }
 
-fn readFileBuffer(allocator: std.mem.Allocator, io: std.Io, path: []const u8, bench: *Bench) !void {
+fn readFileBuffer(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
 
@@ -34,7 +40,7 @@ fn readFileBuffer(allocator: std.mem.Allocator, io: std.Io, path: []const u8, be
     try bench.end();
 }
 
-fn readFileBuffer2MB(allocator: std.mem.Allocator, io: std.Io, path: []const u8, bench: *Bench) !void {
+fn readFileBuffer2MB(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
     const rounded_file_size = std.mem.alignForward(usize, file_size, 2 * 1024 * 1024);
@@ -63,7 +69,7 @@ fn readFileBuffer2MB(allocator: std.mem.Allocator, io: std.Io, path: []const u8,
 var bufferSet = false;
 var bufferReuse: []u8 = undefined;
 
-fn readFileBufferReuse(allocator: std.mem.Allocator, io: std.Io, path: []const u8, bench: *Bench) !void {
+fn readFileBufferReuse(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
 

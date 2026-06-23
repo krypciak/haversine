@@ -4,8 +4,9 @@ const posix = std.posix;
 
 const repetition_tester = @import("./repetition_tester.zig");
 const Bench = repetition_tester.Bench;
+const wrapBuffer = repetition_tester.wrapBuffer;
 
-pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
+pub fn repetitionTest(allocator: std.mem.Allocator) !void {
     const buffer = try allocator.alloc(u8, 500 * 1024 * 1024);
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
@@ -15,25 +16,17 @@ pub fn repetitionTest(allocator: std.mem.Allocator, cpuFreq: u64) !void {
         buffer[byte_index] = @truncate(byte_index);
     }
 
-    const measure_at = [_]u64{ 4, 8, 16, 24, 32, 40, 48, 60, 64, 98, 128, 256, 512, 768, 1024, 1536, 2048, 4096, 8192, 12288, 16384, 32768, 65536, 131072, 262144 };
+    const measure_at = [_]comptime_int{ 4, 8, 16, 24, 32, 40, 48, 60, 64, 98, 128, 256, 512, 768, 1024, 1536, 2048, 4096, 8192, 12288, 16384, 32768, 65536, 131072, 262144 };
 
-    for (measure_at) |kib| {
-        const test_name = try std.fmt.allocPrint(allocator, "CacheSizeMeasure {}KiB", .{kib});
-        _ = try repetition_tester.runTest(test_name, cpuFreq, wrapBufferTest, .{ buffer, kib, 0 });
+    inline for (measure_at) |kib| {
+        const inner_size = kib * 1024;
+        const outer_count = buffer.len / inner_size;
+        const bytes_count = inner_size * outer_count;
+        const buffer_slice = buffer[0..bytes_count];
+
+        var b1 = Bench{ .name = std.fmt.comptimePrint("CacheSizeMeasure {}KiB", .{kib}) };
+        try b1.runLoop(wrapBuffer, .{ buffer_slice, CacheSizeMeasure, .{ outer_count, inner_size } });
     }
 }
 
-pub fn wrapBufferTest(buffer: []u8, kib: u64, misalignment: u64, bench: *Bench) !void {
-    const inner_size = kib * 1024;
-    const outer_count = buffer.len / inner_size;
-    const bytes_count = inner_size * outer_count;
-    // std.debug.print("{} KiB, inner_size: {} B, outer_count: {}, bytes_count: {} \n", .{ kib, inner_size, outer_count, bytes_count });
-
-    try bench.start();
-    CacheSizeMeasure(buffer.ptr + misalignment, outer_count, inner_size);
-    try bench.end();
-
-    bench.bytes = bytes_count;
-}
-
-extern fn CacheSizeMeasure(buffer: [*]u8, outer_count: u64, inner_size: u64) void;
+pub extern fn CacheSizeMeasure(buffer: [*]u8, size: u64, outer_count: u64, inner_size: u64) void;
