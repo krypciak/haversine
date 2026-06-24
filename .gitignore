@@ -33,3 +33,4 @@ read_widths
 cache_size
 cache_indexing
 cache_non_temporal
+cache_prefetching

@@ -2,10 +2,12 @@ const std = @import("std");
 const timer = @import("timer");
 const posix = std.posix;
 
-pub fn wrapBuffer(bench: *Bench, buffer: []u8, comptime func: anytype, args: anytype) !void {
-    bench.bytes = buffer.len;
+pub fn wrapBuffer(bench: *Bench, buffer: anytype, comptime func: anytype, args: anytype) !void {
+    const bytes = buffer.len * @sizeOf(@TypeOf(buffer[0]));
+    bench.bytes = bytes;
+
     try bench.start();
-    _ = @call(.auto, func, .{ buffer.ptr, buffer.len } ++ args);
+    _ = @call(.auto, func, .{ buffer.ptr, bytes } ++ args);
     try bench.end();
 }
 
@@ -115,5 +117,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void
         try @import("cache_indexing.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "cacheNonTemporal")) {
         try @import("cache_non_temporal.zig").repetitionTest(allocator);
+    } else if (std.mem.eql(u8, testType, "cachePrefetching")) {
+        try @import("cache_prefetching.zig").repetitionTest(allocator);
     } else return error.UnknownTestType;
 }
