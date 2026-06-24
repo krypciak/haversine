@@ -10,8 +10,7 @@ fn testSizes(allocator: std.mem.Allocator, comptime read_buffer_size: u64, compt
     const read_buffer = try allocator.alloc(u8, read_buffer_size);
     defer allocator.free(read_buffer);
 
-    var byte_index: u64 = 0;
-    while (byte_index < read_buffer.len) : (byte_index += 1) {
+    for (0..read_buffer.len) |byte_index| {
         read_buffer[byte_index] = @truncate(byte_index);
     }
 

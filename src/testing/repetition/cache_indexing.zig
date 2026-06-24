@@ -16,8 +16,7 @@ pub fn repetitionTest(allocator: std.mem.Allocator) !void {
     defer allocator.free(buffer);
     std.debug.print("bytes_size: {}\n", .{buffer.len});
 
-    var byte_index: u64 = 0;
-    while (byte_index < buffer.len) : (byte_index += 1) {
+    for (0..buffer.len) |byte_index| {
         buffer[byte_index] = @truncate(byte_index);
     }
 
