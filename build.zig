@@ -32,6 +32,7 @@ pub fn build(b: *std.Build) void {
     addAssemblyFile(b, "src/testing/repetition/read_widths.asm", main_mod);
     addAssemblyFile(b, "src/testing/repetition/cache_size.asm", main_mod);
     addAssemblyFile(b, "src/testing/repetition/cache_indexing.asm", main_mod);
+    addAssemblyFile(b, "src/testing/repetition/cache_non_temporal.asm", main_mod);
 
     const main_exe = b.addExecutable(.{
         .name = "haversine",
