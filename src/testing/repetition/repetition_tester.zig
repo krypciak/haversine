@@ -90,6 +90,10 @@ pub const Bench = struct {
         }
         self.print();
     }
+
+    pub fn throughput(self: *Bench) f64 {
+        return timer.throughput(self.bytes, timer.cpuTimeToMs(self.min_time)).throughput_gbps;
+    }
 };
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void {
