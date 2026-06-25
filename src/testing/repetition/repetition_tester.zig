@@ -11,14 +11,10 @@ pub fn wrapBuffer(bench: *Bench, buffer: anytype, comptime func: anytype, args: 
     try bench.end();
 }
 
-var cpuFreq: u64 = 0;
-pub fn setCpuFreq(freq: u64) void {
-    cpuFreq = freq;
-}
+var csv_map: ?std.HashMap([]const u8, std.ArrayList(f64)) = null;
 
 pub const Bench = struct {
     name: []const u8,
-    csv_header: []const u8,
 
     times_run: usize = 0,
     min_time: u64 = std.math.maxInt(u64),
@@ -57,14 +53,10 @@ pub const Bench = struct {
             self.timeout_start = timer.readCpuTimer();
             if (self.print_on_min_change) self.print();
         } else {
-            if (self.timeout_start <= self.end_time - timer.msToCpuTime(self.no_improvement_timeout_ms, cpuFreq)) {
-                self.finish();
+            if (self.timeout_start <= self.end_time - timer.msToCpuTime(self.no_improvement_timeout_ms)) {
+                self.finished = true;
             }
         }
-    }
-
-    fn finish(self: *Bench) void {
-        self.finished = true;
     }
 
     pub fn print(self: *Bench) void {
@@ -73,15 +65,15 @@ pub const Bench = struct {
         }
         self.has_printed = true;
         std.debug.print("{s}\n", .{self.name});
-        const min_time_ms = timer.cpuTimeToMs(self.min_time, cpuFreq);
+        const min_time_ms = timer.cpuTimeToMs(self.min_time);
         // const max_time_ms = timer.cpuTimeToMs(self.maxTime, cpuFreq);
 
         std.debug.print("  min: {d:<12} {d:.2}ms", .{ self.min_time, min_time_ms });
-        timer.printBandwidth(self.bytes, min_time_ms);
+        timer.printThroughput(self.bytes, min_time_ms);
         std.debug.print("\n", .{});
 
         // std.debug.print("  max: {d:<12} {d:.2}ms", .{ self.maxTime, max_time_ms });
-        // timer.printBandwidth(self.bytes, max_time_ms);
+        // timer.printThroughput(self.bytes, max_time_ms);
         // std.debug.print("\n", .{});
 
         const minorFaults = self.end_faults.minflt - self.start_faults.minflt;
@@ -101,9 +93,6 @@ pub const Bench = struct {
 };
 
 pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void {
-    setCpuFreq(timer.estimateCpuTimerFreq(io));
-    std.debug.print("cpuFreq: {d}\n", .{cpuFreq});
-
     if (std.mem.eql(u8, testType, "readFile")) {
         try @import("read_file.zig").repetitionTest(allocator, io);
     } else if (std.mem.eql(u8, testType, "writeBytes")) {
@@ -124,5 +113,7 @@ pub fn run(allocator: std.mem.Allocator, io: std.Io, testType: []const u8) !void
         try @import("cache_non_temporal.zig").repetitionTest(allocator);
     } else if (std.mem.eql(u8, testType, "cachePrefetching")) {
         try @import("cache_prefetching.zig").repetitionTest(allocator);
+    } else if (std.mem.eql(u8, testType, "readFileChunks")) {
+        try @import("read_file_chunks.zig").repetitionTest(allocator, io);
     } else return error.UnknownTestType;
 }

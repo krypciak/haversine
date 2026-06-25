@@ -24,7 +24,13 @@ inline fn readOsTimer(io: std.Io) u64 {
     return @intCast(std.Io.Clock.now(.real, io).toMicroseconds());
 }
 
-pub fn estimateCpuTimerFreq(io: std.Io) u64 {
+var cpu_freq: u64 = 0;
+
+pub fn estimateAndSetCpuTimerFreq(io: std.Io) void {
+    cpu_freq = estimateCpuTimerFreq(io);
+}
+
+fn estimateCpuTimerFreq(io: std.Io) u64 {
     const miliseconds_to_wait: u64 = 100;
     const os_freq: u64 = getOsTimerFreq();
 
@@ -42,12 +48,12 @@ pub fn estimateCpuTimerFreq(io: std.Io) u64 {
     const cpu_end: u64 = readCpuTimer();
     const cpu_elapsed: u64 = cpu_end - cpu_start;
 
-    var cpu_freq: u64 = 0;
+    var freq: u64 = 0;
     if (os_elapsed != 0) {
-        cpu_freq = os_freq * cpu_elapsed / os_elapsed;
+        freq = os_freq * cpu_elapsed / os_elapsed;
     }
 
-    return cpu_freq;
+    return freq;
 }
 
 const TimerEntry = struct {
@@ -92,26 +98,30 @@ inline fn floatDiv(a: anytype, b: anytype) f64 {
     return (@as(f64, @floatFromInt(a)) / @as(f64, @floatFromInt(b)));
 }
 
-pub fn cpuTimeToMs(elapsed: u64, cpu_freq: u64) f64 {
+pub fn cpuTimeToMs(elapsed: u64) f64 {
     return 1000 * floatDiv(elapsed, cpu_freq);
 }
 
-pub fn msToCpuTime(ms: u64, cpu_freq: u64) u64 {
+pub fn msToCpuTime(ms: u64) u64 {
     return ms * cpu_freq / 1000;
 }
 
-pub fn printBandwidth(bytes: u64, elapsed_ms: f64) void {
+pub fn throughput(bytes: u64, elapsed_ms: f64) struct { mb: f64, throughput_gbps: f64 } {
+    const mb = @as(f64, @floatFromInt(bytes)) / 1024.0 / 1024.0;
+    const throughput_gps = mb * 1000.0 / 1024.0 / elapsed_ms;
+    return .{ .mb = mb, .throughput_gbps = throughput_gps };
+}
+
+pub fn printThroughput(bytes: u64, elapsed_ms: f64) void {
     if (bytes > 0) {
-        const mb = @as(f64, @floatFromInt(bytes)) / 1024.0 / 1024.0;
-        const throughput_gps = mb * 1000.0 / 1024.0 / elapsed_ms;
-        std.debug.print("  {d:.2}mb at {d:.2}gb/s", .{ mb, throughput_gps });
+        const obj = throughput(bytes, elapsed_ms);
+        std.debug.print("  {d:.2}mb at {d:.2}gb/s", .{ obj.mb, obj.throughput_gbps });
     }
 }
 
-pub fn finalize(io: std.Io) !void {
+pub fn finalize() !void {
     const all_elapsed = readCpuTimer() - timer_begin;
-    const cpu_freq = estimateCpuTimerFreq(io);
-    const all_elapsed_ms = cpuTimeToMs(all_elapsed, cpu_freq);
+    const all_elapsed_ms = cpuTimeToMs(all_elapsed);
 
     std.debug.print("total time               : {d} {d:.2}ms (CPU freq: {d})\n", .{ all_elapsed, all_elapsed_ms, cpu_freq });
 
@@ -120,7 +130,7 @@ pub fn finalize(io: std.Io) !void {
         std.debug.assert(entry.end > entry.start);
         const elapsed: u64 = entry.end - entry.start;
         const percent: f64 = 100.0 * floatDiv(elapsed, all_elapsed);
-        const elapsed_ms: f64 = cpuTimeToMs(elapsed, cpu_freq);
+        const elapsed_ms: f64 = cpuTimeToMs(elapsed);
 
         if (entry.depth == 0) time_accounted_for += elapsed;
 
@@ -128,12 +138,12 @@ pub fn finalize(io: std.Io) !void {
         while (i < entry.depth * 2 + 2) : (i += 2) std.debug.print("  ", .{});
 
         std.debug.print("{s: <25}: {d: <12} {d:.2}ms ({d:.2}%)", .{ entry.label, elapsed, elapsed_ms, percent });
-        printBandwidth(entry.bytes, elapsed_ms);
+        printThroughput(entry.bytes, elapsed_ms);
         std.debug.print("\n", .{});
     }
 
     const time_unaccounted_for = all_elapsed - time_accounted_for;
-    const time_unaccounted_for_ms = cpuTimeToMs(time_unaccounted_for, cpu_freq);
+    const time_unaccounted_for_ms = cpuTimeToMs(time_unaccounted_for);
     const time_unaccounted_for_percent: f64 = 100.0 * floatDiv(time_unaccounted_for, all_elapsed);
     std.debug.print("time unaccounted for     : {d} {d:.2}ms ({d:.2}%)\n", .{ time_unaccounted_for, time_unaccounted_for_ms, time_unaccounted_for_percent });
 

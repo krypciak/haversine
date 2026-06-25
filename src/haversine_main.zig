@@ -70,7 +70,7 @@ pub fn handleCompute(allocator: std.mem.Allocator, io: std.Io, input_file_path: 
             try stdout.flush();
         }
 
-        try timer.finalize(io);
+        try timer.finalize();
     } else return error.JsonNodeNull;
 }
 

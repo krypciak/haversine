@@ -1,4 +1,5 @@
 const std = @import("std");
+const timer = @import("timer");
 
 pub fn main(init: std.process.Init) !void {
     const allocator = std.heap.page_allocator;
@@ -7,6 +8,8 @@ pub fn main(init: std.process.Init) !void {
     if (argv.len <= 1) return error.MissingAction;
 
     const io = init.io;
+
+    timer.estimateAndSetCpuTimerFreq(io);
 
     const arg1 = argv[1];
     const arg2 = if (argv.len <= 2) null else argv[2];
