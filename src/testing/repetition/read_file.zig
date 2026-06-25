@@ -13,7 +13,7 @@ pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io) !void {
     try b1.runLoop(readFileBuffer, .{ allocator, io, filePath });
 
     var b2 = Bench{ .name = "readFileBuffer2MB" };
-    try b2.runLoop(readFileBuffer2MB, .{ allocator, io, filePath });
+    try b2.runLoop(readFileBuffer2MB, .{ io, filePath });
 
     var b3 = Bench{ .name = "readFileBufferReuse" };
     try b3.runLoop(readFileBufferReuse, .{ allocator, io, filePath });
@@ -40,21 +40,26 @@ fn readFileBuffer(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path:
     try bench.end();
 }
 
-fn readFileBuffer2MB(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
+// in reality, allocator.alloc with call std.posix.mmap down the line with
+// simmlar arguments that also allos for 2mb pages, so the performance is
+// pretty much the same, just a litte less overhead from the std
+fn readFileBuffer2MB(bench: *Bench, io: std.Io, path: []const u8) !void {
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
     const rounded_file_size = std.mem.alignForward(usize, file_size, 2 * 1024 * 1024);
 
     try bench.start();
 
-    // does this actually work? probably no
-    const buffer = try allocator.alignedAlloc(u8, std.mem.Alignment.fromByteUnits(4096), rounded_file_size);
-    _ = try std.posix.madvise(
-        buffer.ptr,
-        buffer.len,
-        std.posix.MADV.HUGEPAGE,
+    const buffer = try std.posix.mmap(
+        null,
+        rounded_file_size,
+        std.os.linux.PROT{ .READ = true, .WRITE = true },
+        .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
+        -1,
+        0,
     );
-    defer allocator.free(buffer);
+
+    defer std.posix.munmap(buffer);
 
     _ = try file.readPositionalAll(io, buffer, 0);
 
