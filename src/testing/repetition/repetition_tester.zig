@@ -18,60 +18,65 @@ pub fn setCpuFreq(freq: u64) void {
 
 pub const Bench = struct {
     name: []const u8,
+    csv_header: []const u8,
 
-    timesRun: usize = 0,
-    minTime: u64 = std.math.maxInt(u64),
-    maxTime: u64 = std.math.minInt(u64),
-    noImprovementTimeoutMs: u64 = 3 * 1000,
-    timeoutStart: u64 = 0,
+    times_run: usize = 0,
+    min_time: u64 = std.math.maxInt(u64),
+    max_time: u64 = std.math.minInt(u64),
+    no_improvement_timeout_ms: u64 = 3 * 1000,
+    timeout_start: u64 = 0,
     finished: bool = false,
     bytes: u64 = 0,
-    printOnMinChange: bool = true,
-    hasPrinted: bool = false,
+    print_on_min_change: bool = true,
+    has_printed: bool = false,
 
-    startTime: u64 = 0,
-    endTime: u64 = 0,
+    start_time: u64 = 0,
+    end_time: u64 = 0,
 
-    startFaults: posix.rusage = undefined,
-    endFaults: posix.rusage = undefined,
+    start_faults: posix.rusage = undefined,
+    end_faults: posix.rusage = undefined,
 
     pub fn start(self: *Bench) !void {
-        self.startTime = timer.readCpuTimer();
-        self.endTime = 0;
-        self.startFaults = posix.getrusage(posix.rusage.SELF);
+        self.start_time = timer.readCpuTimer();
+        self.end_time = 0;
+        self.start_faults = posix.getrusage(posix.rusage.SELF);
     }
 
     pub fn end(self: *Bench) !void {
-        self.endTime = timer.readCpuTimer();
-        self.timesRun += 1;
+        self.end_time = timer.readCpuTimer();
+        self.times_run += 1;
 
-        self.endFaults = posix.getrusage(posix.rusage.SELF);
+        self.end_faults = posix.getrusage(posix.rusage.SELF);
 
-        const elapsed = self.endTime - self.startTime;
+        const elapsed = self.end_time - self.start_time;
 
-        self.maxTime = @max(self.maxTime, elapsed);
+        self.max_time = @max(self.max_time, elapsed);
 
-        if (self.minTime > elapsed) {
-            self.minTime = elapsed;
-            self.timeoutStart = timer.readCpuTimer();
-            if (self.printOnMinChange) self.print();
+        if (self.min_time > elapsed) {
+            self.min_time = elapsed;
+            self.timeout_start = timer.readCpuTimer();
+            if (self.print_on_min_change) self.print();
         } else {
-            if (self.timeoutStart <= self.endTime - timer.msToCpuTime(self.noImprovementTimeoutMs, cpuFreq)) {
-                self.finished = true;
+            if (self.timeout_start <= self.end_time - timer.msToCpuTime(self.no_improvement_timeout_ms, cpuFreq)) {
+                self.finish();
             }
         }
     }
 
+    fn finish(self: *Bench) void {
+        self.finished = true;
+    }
+
     pub fn print(self: *Bench) void {
-        if (self.hasPrinted) {
+        if (self.has_printed) {
             std.debug.print("\x1b[4A\x1b[J", .{});
         }
-        self.hasPrinted = true;
+        self.has_printed = true;
         std.debug.print("{s}\n", .{self.name});
-        const min_time_ms = timer.cpuTimeToMs(self.minTime, cpuFreq);
+        const min_time_ms = timer.cpuTimeToMs(self.min_time, cpuFreq);
         // const max_time_ms = timer.cpuTimeToMs(self.maxTime, cpuFreq);
 
-        std.debug.print("  min: {d:<12} {d:.2}ms", .{ self.minTime, min_time_ms });
+        std.debug.print("  min: {d:<12} {d:.2}ms", .{ self.min_time, min_time_ms });
         timer.printBandwidth(self.bytes, min_time_ms);
         std.debug.print("\n", .{});
 
@@ -79,8 +84,8 @@ pub const Bench = struct {
         // timer.printBandwidth(self.bytes, max_time_ms);
         // std.debug.print("\n", .{});
 
-        const minorFaults = self.endFaults.minflt - self.startFaults.minflt;
-        const majorFaults = self.endFaults.majflt - self.startFaults.majflt;
+        const minorFaults = self.end_faults.minflt - self.start_faults.minflt;
+        const majorFaults = self.end_faults.majflt - self.start_faults.majflt;
 
         std.debug.print("  minor major faults: {d:<6} {d:<6}\n", .{ minorFaults, majorFaults });
 
