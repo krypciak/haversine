@@ -84,11 +84,14 @@ pub const Bench = struct {
         std.debug.print("\n", .{});
     }
 
-    pub fn runLoop(self: *Bench, comptime func: anytype, args: anytype) !void {
+    pub fn runLoop(self: *Bench, comptime func: anytype, args: anytype) !@typeInfo(@typeInfo(@TypeOf(func)).@"fn".return_type.?).error_union.payload {
+        const first_return = try @call(.auto, func, .{self} ++ args);
         while (!self.finished) {
-            try @call(.auto, func, .{self} ++ args);
+            const new_return = try @call(.auto, func, .{self} ++ args);
+            if (first_return != new_return) return error.ValueMismatch;
         }
         self.print();
+        return first_return;
     }
 
     pub fn throughput(self: *Bench) f64 {
