@@ -1,6 +1,5 @@
 const std = @import("std");
 const timer = @import("timer");
-const posix = std.posix;
 
 const repetition_tester = @import("./repetition_tester.zig");
 const Bench = repetition_tester.Bench;
@@ -10,22 +9,32 @@ pub fn repetitionTest(allocator: std.mem.Allocator, io: std.Io) !void {
 
     // while (true) {
     var b1 = Bench{ .name = "readFileBuffer" };
-    try b1.runLoop(readFileBuffer, .{ allocator, io, filePath });
+    const b1sum: u64 = try b1.runLoop(readFileBuffer, .{ allocator, io, filePath });
+    std.debug.print("sum: {}\n", .{b1sum});
 
     var b2 = Bench{ .name = "readFileBuffer2MB" };
-    try b2.runLoop(readFileBuffer2MB, .{ io, filePath });
+    const b2sum: u64 = try b2.runLoop(readFileBuffer2MB, .{ io, filePath });
+    std.debug.assert(b1sum == b2sum);
+    std.debug.print("sum: {}\n", .{b2sum});
 
     var b3 = Bench{ .name = "readFileBufferReuse" };
-    try b3.runLoop(readFileBufferReuse, .{ allocator, io, filePath });
+    const b3sum: u64 = try b3.runLoop(readFileBufferReuse, .{ allocator, io, filePath });
+    std.debug.assert(b1sum == b3sum);
+    std.debug.print("sum: {}\n", .{b3sum});
+
+    var b4 = Bench{ .name = "readFileMemoryMapped" };
+    const b4sum: u64 = try b4.runLoop(readFileMemoryMapped, .{ io, filePath });
+    std.debug.assert(b1sum == b4sum);
+    std.debug.print("sum: {}\n", .{b4sum});
 
     // }
 }
 
-fn readFileBuffer(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
+fn readFileBuffer(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !u64 {
+    try bench.start();
+
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
-
-    try bench.start();
 
     const buffer = try allocator.alloc(u8, file_size);
     defer allocator.free(buffer);
@@ -34,26 +43,30 @@ fn readFileBuffer(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path:
 
     if (file_size != buffer.len) return error.ReadFileSizeMismatch;
 
+    var sum: u64 = 0;
+    for (0..buffer.len) |i| {
+        sum += buffer[i];
+    }
+
     file.close(io);
 
     bench.bytes = file_size;
     try bench.end();
+
+    return sum;
 }
 
-// in reality, allocator.alloc with call std.posix.mmap down the line with
-// simmlar arguments that also allos for 2mb pages, so the performance is
-// pretty much the same, just a litte less overhead from the std
-fn readFileBuffer2MB(bench: *Bench, io: std.Io, path: []const u8) !void {
+fn readFileBuffer2MB(bench: *Bench, io: std.Io, path: []const u8) !u64 {
+    try bench.start();
+
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
     const rounded_file_size = std.mem.alignForward(usize, file_size, 2 * 1024 * 1024);
 
-    try bench.start();
-
     const buffer = try std.posix.mmap(
         null,
         rounded_file_size,
-        std.os.linux.PROT{ .READ = true, .WRITE = true },
+        .{ .READ = true, .WRITE = true },
         .{ .TYPE = .PRIVATE, .ANONYMOUS = true },
         -1,
         0,
@@ -65,20 +78,27 @@ fn readFileBuffer2MB(bench: *Bench, io: std.Io, path: []const u8) !void {
 
     if (rounded_file_size != buffer.len) return error.ReadFileSizeMismatch;
 
+    var sum: u64 = 0;
+    for (0..buffer.len) |i| {
+        sum += buffer[i];
+    }
+
     file.close(io);
 
     bench.bytes = file_size;
     try bench.end();
+
+    return sum;
 }
 
 var bufferSet = false;
 var bufferReuse: []u8 = undefined;
 
-fn readFileBufferReuse(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !void {
+fn readFileBufferReuse(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, path: []const u8) !u64 {
+    try bench.start();
+
     const file = try std.Io.Dir.cwd().openFile(io, path, .{});
     const file_size = (try file.stat(io)).size;
-
-    try bench.start();
 
     if (!bufferSet) {
         bufferSet = true;
@@ -91,8 +111,46 @@ fn readFileBufferReuse(bench: *Bench, allocator: std.mem.Allocator, io: std.Io, 
 
     if (file_size != buffer.len) return error.ReadFileSizeMismatch;
 
+    var sum: u64 = 0;
+    for (0..buffer.len) |i| {
+        sum += buffer[i];
+    }
+
     file.close(io);
 
     bench.bytes = file_size;
     try bench.end();
+
+    return sum;
+}
+
+fn readFileMemoryMapped(bench: *Bench, io: std.Io, path: []const u8) !u64 {
+    try bench.start();
+
+    const file = try std.Io.Dir.cwd().openFile(io, path, .{});
+    const file_size = (try file.stat(io)).size;
+
+    const buffer: []align(4096) const u8 = try std.posix.mmap(
+        null,
+        file_size,
+        .{ .READ = true },
+        .{ .TYPE = .PRIVATE },
+        file.handle,
+        0,
+    );
+    defer std.posix.munmap(buffer);
+
+    if (file_size != buffer.len) return error.ReadFileSizeMismatch;
+
+    var sum: u64 = 0;
+    for (0..buffer.len) |i| {
+        sum += buffer[i];
+    }
+
+    file.close(io);
+
+    bench.bytes = file_size;
+    try bench.end();
+
+    return sum;
 }
