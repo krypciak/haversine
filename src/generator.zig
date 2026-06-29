@@ -19,7 +19,6 @@ pub fn writeRandomPoints(allocator: std.mem.Allocator, io: std.Io, point_pair_co
     );
     const json_file_data_buffer = try allocator.alloc(u8, point_pair_count * 600);
     var json_file_writer = json_file.writer(io, json_file_data_buffer);
-    const json_file_writer_interface = &json_file_writer.interface;
 
     const binary_file = try std.Io.Dir.cwd().createFile(
         io,
@@ -28,9 +27,8 @@ pub fn writeRandomPoints(allocator: std.mem.Allocator, io: std.Io, point_pair_co
     );
     const binary_file_data_buffer = try allocator.alloc(u8, (point_pair_count + 1) * @sizeOf(f64));
     var binary_file_writer = binary_file.writer(io, binary_file_data_buffer);
-    const binary_file_writer_interface = &binary_file_writer.interface;
 
-    try json_file_writer_interface.writeAll(
+    try json_file_writer.interface.writeAll(
         \\{
         \\  "pairs": [
         \\
@@ -49,25 +47,25 @@ pub fn writeRandomPoints(allocator: std.mem.Allocator, io: std.Io, point_pair_co
         const result = formula.referenceHaversine(x0, y0, x1, y1, formula.EARTH_RADIUS);
         sum += sum_coef * result;
 
-        try writeF64(binary_file_writer_interface, result);
+        try writeF64(&binary_file_writer.interface, result);
 
-        try json_file_writer_interface.print("    {{ \"x0\": {d}, \"y0\": {d}, \"x1\": {d}, \"y1\": {d} }}", .{ x0, y0, x1, y1 });
+        try json_file_writer.interface.print("    {{ \"x0\": {d}, \"y0\": {d}, \"x1\": {d}, \"y1\": {d} }}", .{ x0, y0, x1, y1 });
 
-        if (i != point_pair_count - 1) try json_file_writer_interface.writeAll(",");
-        try json_file_writer_interface.writeAll("\n");
+        if (i != point_pair_count - 1) try json_file_writer.interface.writeAll(",");
+        try json_file_writer.interface.writeAll("\n");
     }
 
     std.debug.print("sum: {d}\n", .{sum});
 
-    try json_file_writer_interface.writeAll(
+    try json_file_writer.interface.writeAll(
         \\  ]
         \\}
     );
-    try json_file_writer_interface.flush();
+    try json_file_writer.interface.flush();
     json_file.close(io);
 
-    try writeF64(binary_file_writer_interface, sum);
-    try binary_file_writer_interface.flush();
+    try writeF64(&binary_file_writer.interface, sum);
+    try binary_file_writer.interface.flush();
     binary_file.close(io);
 
     std.debug.print("output in\n./{s}\n./{s}\n", .{ json_output_filename, binary_output_filename });

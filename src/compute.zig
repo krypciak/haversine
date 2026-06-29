@@ -4,9 +4,9 @@ const formula = @import("./formula.zig");
 
 pub fn compute(allocator: std.mem.Allocator, points: []Point) ![]const f64 {
     const result_array: []f64 = try allocator.alloc(f64, points.len + 1);
-    var sum: f64 = 0;
     const sum_coef = formula.sumCoef(points.len);
 
+    var sum: f64 = 0;
     for (points, 0..) |point, i| {
         const result = formula.referenceHaversine(point.x0, point.y0, point.x1, point.y1, formula.EARTH_RADIUS);
 

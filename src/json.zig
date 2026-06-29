@@ -26,21 +26,17 @@ pub const JsonNode = union(JsonNode.Type) {
 
         switch (self.*) {
             .Number => |*num| {
-                const str = try std.fmt.allocPrint(allocator, "{d}", .{num.*});
-                defer allocator.free(str);
+                var buf: [128]u8 = undefined;
+                const str = try std.fmt.bufPrint(&buf, "{d}", .{num.*});
                 try builder.appendSlice(allocator, str);
             },
             .String => |*string| {
-                const str = try std.fmt.allocPrint(allocator, "\"{s}\"", .{string.*});
-                defer allocator.free(str);
-                try builder.appendSlice(allocator, str);
+                try builder.append(allocator, '"');
+                try builder.appendSlice(allocator, string.*);
+                try builder.append(allocator, '"');
             },
             .Bool => |*b| {
-                if (b.*) {
-                    try builder.appendSlice(allocator, "true");
-                } else {
-                    try builder.appendSlice(allocator, "false");
-                }
+                try builder.appendSlice(allocator, if (b.*) "true" else "false");
             },
             .Null => {
                 try builder.appendSlice(allocator, "null");
@@ -101,17 +97,11 @@ pub const Json = struct {
 };
 
 const JsonNodeParser = struct {
-    fn isWhitespace(char: u8) bool {
-        return char == ' ' or char == '\t' or char == '\r' or char == '\n';
-    }
-
     fn isControlCharacter(char: u8) bool {
         return char == '"' or char == '\\' or char == '/' or char == 'b' or char == 'f' or char == 'n' or char == 'r' or char == 't' or char == 'u';
     }
 
     fn readString(allocator: std.mem.Allocator, str: []const u8, start_i: usize) !struct { str: []const u8, i: usize } {
-        // try timer.startMulti("readString");
-        // defer timer.stopMulti("readString");
         var string_builder: ArrayList(u8) = .empty;
 
         var i = start_i;
@@ -122,7 +112,7 @@ const JsonNodeParser = struct {
             if (previous_backslash) {
                 previous_backslash = false;
 
-                const char: u8 = try switch (c) {
+                const char: u8 = switch (c) {
                     '\\' => @as(u8, '\\'),
                     '"' => @as(u8, '"'),
                     'b' => @as(u8, '\x08'),
@@ -130,13 +120,12 @@ const JsonNodeParser = struct {
                     'n' => @as(u8, '\n'),
                     'r' => @as(u8, '\r'),
                     't' => @as(u8, '\t'),
-                    'u' => unreachable,
-                    else => error.InvalidEscapeCharacter,
+                    'u' => return error.UnicodeEscapeCodeUnsupported,
+                    else => return error.InvalidEscapeCharacter,
                 };
                 try string_builder.append(allocator, char);
             } else if (c == '\\') {
                 previous_backslash = true;
-                continue;
             } else if (c == '"') {
                 const slice = try string_builder.toOwnedSlice(allocator);
                 return .{ .str = slice, .i = i };
@@ -213,34 +202,30 @@ const JsonNodeParser = struct {
 
         while (i < str.len) : (i += 1) {
             const c = str[i];
-            if (isWhitespace(c)) {
+            if (std.ascii.isWhitespace(c)) {
                 continue;
             }
 
             var node: ?JsonNode = null;
 
             if (c == ']') {
-                var builder_node_optional = stack.pop();
-                if (builder_node_optional) |*builder| {
-                    try switch (builder.*) {
-                        .Array => |*builder_arr| {
-                            const array = try builder_arr.toOwnedSlice(allocator);
-                            node = .{ .Array = array };
-                        },
-                        else => error.ExpectedClosingBracket,
-                    };
-                } else return error.UnexpectedClosingBracket;
+                var builder = stack.pop() orelse return error.UnexpectedClosingBracket;
+                switch (builder) {
+                    .Array => |*builder_arr| {
+                        const array = try builder_arr.toOwnedSlice(allocator);
+                        node = .{ .Array = array };
+                    },
+                    else => return error.ExpectedClosingBracket,
+                }
             } else if (c == '}') {
-                const builder_node_optional = stack.pop();
-                if (builder_node_optional) |*builder_node| {
-                    try switch (builder_node.*) {
-                        .Record => |*builder_rec| {
-                            const map = builder_rec.map;
-                            node = .{ .Record = map };
-                        },
-                        else => error.UnexpectedClosingBrace,
-                    };
-                } else return error.UnexpectedClosingBrace;
+                const builder_node = stack.pop() orelse return error.UnexpectedClosingBrace;
+                switch (builder_node) {
+                    .Record => |*builder_rec| {
+                        const map = builder_rec.map;
+                        node = .{ .Record = map };
+                    },
+                    else => return error.UnexpectedClosingBrace,
+                }
             } else if (expect_comma) {
                 if (c == ':') {
                     switch (stack.getLast()) {
@@ -260,13 +245,13 @@ const JsonNodeParser = struct {
                 const obj = try readString(allocator, str, i);
                 i = obj.i;
                 node = .{ .String = obj.str };
-            } else if (c == 'n' and i + 4 <= str.len and str[i + 1] == 'u' and str[i + 2] == 'l' and str[i + 3] == 'l') {
+            } else if (c == 'n' and std.mem.startsWith(u8, str[i + 1 ..], "ull")) {
                 node = .{ .Null = {} };
                 i += 3;
-            } else if (c == 't' and i + 4 <= str.len and str[i + 1] == 'r' and str[i + 2] == 'u' and str[i + 3] == 'e') {
+            } else if (c == 't' and std.mem.startsWith(u8, str[i + 1 ..], "rue")) {
                 node = .{ .Bool = true };
                 i += 3;
-            } else if (c == 'f' and i + 5 <= str.len and str[i + 1] == 'a' and str[i + 2] == 'l' and str[i + 3] == 's' and str[i + 4] == 'e') {
+            } else if (c == 'f' and std.mem.startsWith(u8, str[i + 1 ..], "alse")) {
                 node = .{ .Bool = false };
                 i += 4;
             } else {
