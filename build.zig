@@ -57,4 +57,12 @@ pub fn build(b: *std.Build) void {
     const run_tests = b.addRunArtifact(test_exe);
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_tests.step);
+
+    const exe_check = b.addExecutable(.{
+        .name = "haversine",
+        .root_module = main_mod,
+    });
+
+    const check = b.step("check", "Check if foo compiles");
+    check.dependOn(&exe_check.step);
 }
